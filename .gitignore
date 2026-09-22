@@ -1,2 +1,34 @@
+# 依赖与构建产物
 node_modules
 dist
+
+# Vite 缓存
+.vite
+*.tsbuildinfo
+
+# 日志
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 本地环境变量（保留 .env / .env.example 可提交）
+.env.local
+.env.*.local
+
+# 测试覆盖率
+coverage
+*.lcov
+
+# 编辑器 / 操作系统
+.DS_Store
+Thumbs.db
+.idea
+.vscode/*
+!.vscode/extensions.json
+
+# 项目使用 pnpm，忽略其它包管理器的锁文件
+package-lock.json
+yarn.lock
