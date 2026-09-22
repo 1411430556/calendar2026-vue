@@ -44,10 +44,14 @@ export function initCursorEffect(): () => void {
   const ctx = canvas.getContext('2d')!
 
   let dpr = 1
+  let viewW = window.innerWidth
+  let viewH = window.innerHeight
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, 2)
-    canvas.width = window.innerWidth * dpr
-    canvas.height = window.innerHeight * dpr
+    viewW = window.innerWidth
+    viewH = window.innerHeight
+    canvas.width = viewW * dpr
+    canvas.height = viewH * dpr
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   }
   resize()
@@ -90,7 +94,8 @@ export function initCursorEffect(): () => void {
   // 在 (x, y) 处生成 count 个粒子，初速 30 ~ spread px/s，带轻微向上偏置
   function spawn(x: number, y: number, count: number, spread: number) {
     for (let i = 0; i < count; i++) {
-      if (particles.length >= MAX) particles.shift()
+      // 达到上限时直接丢弃（不再 shift 触发 O(n) 重排），新粒子视觉上几不可察
+      if (particles.length >= MAX) break
       const angle = Math.random() * Math.PI * 2
       const speed = 30 + Math.random() * spread
       const maxLife = 0.45 + Math.random() * 0.5
@@ -112,7 +117,7 @@ export function initCursorEffect(): () => void {
   function tick(now: number) {
     const dt = Math.min((now - lastTime) / 1000, 0.033)
     lastTime = now
-    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight)
+    ctx.clearRect(0, 0, viewW, viewH)
 
     // 环绕轨道：中心朝光标缓动跟随，每个粒子的半径独立随机变化；鼠标出现后持续绘制
     if (mouseSeen) {
@@ -135,7 +140,9 @@ export function initCursorEffect(): () => void {
       const p = particles[i]
       p.life -= dt
       if (p.life <= 0) {
-        particles.splice(i, 1)
+        // swap-pop：把末尾元素移到当前位置再 pop，O(1) 移除，避免 splice 重排
+        const last = particles.pop()
+        if (i < particles.length && last) particles[i] = last
         continue
       }
       p.vy += 420 * dt // 重力
@@ -188,14 +195,28 @@ export function initCursorEffect(): () => void {
     spawn(e.clientX, e.clientY, 16, 260)
   }
 
+  // 标签页切到后台时暂停动画循环，切回时恢复（前台空闲时仍按设计持续环绕）
+  let hidden = false
+  function onVisibility() {
+    hidden = document.hidden
+    if (hidden) {
+      cancelAnimationFrame(raf)
+      raf = 0
+    } else if (mouseSeen || particles.length) {
+      ensureLoop()
+    }
+  }
+
   window.addEventListener('resize', resize)
   window.addEventListener('pointermove', onMove, { passive: true })
   window.addEventListener('click', onClick, { passive: true })
+  document.addEventListener('visibilitychange', onVisibility)
 
   return () => {
     window.removeEventListener('resize', resize)
     window.removeEventListener('pointermove', onMove)
     window.removeEventListener('click', onClick)
+    document.removeEventListener('visibilitychange', onVisibility)
     cancelAnimationFrame(raf)
     raf = 0
     canvas.remove()
