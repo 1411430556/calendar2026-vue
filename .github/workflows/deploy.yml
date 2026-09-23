@@ -43,7 +43,7 @@ jobs:
         run: pnpm build # 含 vue-tsc 类型检查 + vite 构建，产物在 dist/
         env:
           # API 密钥在仓库 Settings → Secrets and variables → Actions 中配置
-          VITE_HISTORY_API_KEY: ${{ secrets_VITE_HISTORY_API_KEY }}
+          VITE_HISTORY_API_KEY: ${{ SECRETS_VITE_HISTORY_API_KEY }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
