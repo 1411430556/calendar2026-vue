@@ -13,6 +13,8 @@ import {
 } from 'naive-ui'
 import { CAL, HOLIDAYS, type DayInfo } from './data/calendar2026'
 import { initCursorEffect } from './cursorEffect'
+import HistoryToday from './HistoryToday.vue'
+import DailyQuote from './DailyQuote.vue'
 
 // ============ 中国风主题令牌（对齐 naive-ui） ============
 const themeOverrides = {
@@ -296,6 +298,9 @@ onUnmounted(() => {
         </div>
       </nav>
 
+      <!-- ============ 每日一言 ============ -->
+      <DailyQuote />
+
       <!-- ============ OVERVIEW ============ -->
       <section id="overview" class="wrap">
         <div class="sec-head">
@@ -409,6 +414,9 @@ onUnmounted(() => {
           </n-gi>
         </n-grid>
       </section>
+
+      <!-- ============ 历史上的今天浮窗 ============ -->
+      <HistoryToday />
 
       <!-- ============ FOOTER ============ -->
       <footer>
