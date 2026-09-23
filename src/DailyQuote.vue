@@ -27,7 +27,10 @@ function parsePayload(json: { data?: { text?: string } }): Quote | null {
 
 async function load() {
   try {
-    const res = await fetch(`${API_URL}?key=${encodeURIComponent(API_KEY)}&type=4&m=0`)
+    // 8 秒超时：弱网挂起时及时回退预设文案，避免骨架屏永久停留
+    const res = await fetch(`${API_URL}?key=${encodeURIComponent(API_KEY)}&type=4&m=0`, {
+      signal: AbortSignal.timeout(8000),
+    })
     if (!res.ok) throw new Error(String(res.status))
     const parsed = parsePayload(await res.json())
     if (!parsed || !parsed.content) throw new Error('empty')

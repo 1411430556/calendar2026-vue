@@ -133,20 +133,27 @@ const months = computed<MonthBlock[]>(() => {
 
 const activeMonth = ref(1)
 
-// 响应式列数：监听窗口宽度动态计算（naive-ui 未导出 useBreakpoint）
-const screenWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1200)
-function onResize() {
-  screenWidth.value = window.innerWidth
+// 响应式列数：用 matchMedia 监听断点跨越（与 CSS 媒体查询 600/900 对齐）。
+// 相比 resize，移动端地址栏收缩/展开不会触发无效更新，且只在断点真正变化时回调
+const mq600 = window.matchMedia('(max-width: 600px)')
+const mq900 = window.matchMedia('(max-width: 900px)')
+const isNarrow = ref(mq600.matches)
+const isMedium = ref(mq900.matches)
+function onMq600(e: MediaQueryListEvent) {
+  isNarrow.value = e.matches
 }
-const statCols = computed(() => (screenWidth.value < 600 ? 2 : 4))
+function onMq900(e: MediaQueryListEvent) {
+  isMedium.value = e.matches
+}
+const statCols = computed(() => (isNarrow.value ? 2 : 4))
 const holCols = computed(() => {
-  if (screenWidth.value < 600) return 1
-  if (screenWidth.value < 900) return 2
+  if (isNarrow.value) return 1
+  if (isMedium.value) return 2
   return 4
 })
 const calCols = computed(() => {
-  if (screenWidth.value < 600) return 1
-  if (screenWidth.value < 900) return 2
+  if (isNarrow.value) return 1
+  if (isMedium.value) return 2
   return 3
 })
 
@@ -190,7 +197,8 @@ let disposeCursor: (() => void) | null = null
 onMounted(() => {
   // 页面标题跟随数据年份动态更新（index.html 中的 2026 仅作初始占位）
   document.title = `${YEAR} ${GANZHI}${ZODIAC_CHAR}年 · 全年节假日日历（含农历·节气·调休）`
-  window.addEventListener('resize', onResize)
+  mq600.addEventListener('change', onMq600)
+  mq900.addEventListener('change', onMq900)
   disposeCursor = initCursorEffect()
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const revealTargets = document.querySelectorAll('.month, .hol-card')
@@ -231,7 +239,8 @@ onUnmounted(() => {
   revealIO?.disconnect()
   spyIO?.disconnect()
   disposeCursor?.()
-  window.removeEventListener('resize', onResize)
+  mq600.removeEventListener('change', onMq600)
+  mq900.removeEventListener('change', onMq900)
 })
 </script>
 

@@ -47,6 +47,12 @@ body {
   overflow-x: clip;
 }
 
+/* 移除安卓 WebView / 微信浏览器点击原生按钮与链接时的灰蓝高亮闪块 */
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
 h1,
 h2,
 h3,
@@ -57,6 +63,9 @@ h3,
 .wrap {
   width: min(1180px, 92vw);
   margin-inline: auto;
+  /* 刘海机横屏时左右两侧避让灵动岛/圆角（全局 box-sizing: border-box，不撑破宽度） */
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 .brush {
@@ -69,7 +78,8 @@ h3,
   color: var(--hero-ink);
   overflow: hidden;
   background: radial-gradient(120% 130% at 82% -10%, #24403a 0%, #16241f 42%, var(--hero-2) 100%);
-  padding: clamp(34px, 5vw, 66px) 0 clamp(40px, 6vw, 74px);
+  /* 顶部叠加安全区：添加到主屏幕全屏运行时避让状态栏 */
+  padding: calc(clamp(34px, 5vw, 66px) + env(safe-area-inset-top, 0px)) 0 clamp(40px, 6vw, 74px);
   border-bottom: 3px solid var(--gold);
 }
 
@@ -311,6 +321,8 @@ h3,
   backdrop-filter: saturate(140%) blur(10px);
   border-bottom: 1px solid var(--line);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  /* 刘海机全屏运行时导航条顶部延伸进安全区 */
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .monthnav-inner {
@@ -319,7 +331,8 @@ h3,
   overflow-x: auto;
   padding: 12px 0;
   scrollbar-width: none;
-  justify-content: center;
+  /* safe：空间足够时居中；内容溢出时退化为起始对齐，保证横滚时"1月"等首项可达 */
+  justify-content: safe center;
 }
 
 .monthnav-inner::-webkit-scrollbar {
@@ -548,10 +561,13 @@ section {
   padding: 2px 1px;
 }
 
-.cell:hover {
-  transform: scale(1.06);
-  z-index: 3;
-  box-shadow: 0 6px 16px -6px rgba(60, 45, 25, 0.4);
+/* 悬停放大仅对"有鼠标且指针精细"的设备生效，避免触屏点击后缩放状态粘滞 */
+@media (hover: hover) and (pointer: fine) {
+  .cell:hover {
+    transform: scale(1.06);
+    z-index: 3;
+    box-shadow: 0 6px 16px -6px rgba(60, 45, 25, 0.4);
+  }
 }
 
 .cell.blank {
@@ -659,7 +675,8 @@ section {
 footer {
   background: linear-gradient(180deg, #151c19, #0c120f);
   color: #c3bba9;
-  padding: 46px 0 40px;
+  /* 底部叠加安全区：iPhone Home 指示条不遮挡版权文字 */
+  padding: 46px 0 calc(40px + env(safe-area-inset-bottom, 0px));
   border-top: 3px solid var(--gold);
 }
 
@@ -731,6 +748,65 @@ footer .wrap {
     border-left: none;
     border-top: 1px solid rgba(217, 188, 116, 0.35);
     padding: 8px 0 0;
+  }
+}
+
+@media (max-width: 600px) {
+  /* 移动端月份按钮必然溢出：左对齐保证首项可达，两侧渐隐提示可横滑 */
+  .monthnav-inner {
+    justify-content: flex-start;
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent 0,
+      #000 14px,
+      #000 calc(100% - 14px),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      transparent 0,
+      #000 14px,
+      #000 calc(100% - 14px),
+      transparent 100%
+    );
+  }
+  /* 提升触控热区至 40px（接近行业 44/48px 标准的同时不显著增高导航条） */
+  .monthnav-inner .n-button {
+    min-height: 40px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  /* 日历单列时格子并不窄，但原农历 9.6px / 印章 8.6px 在手机上不可读，整体上调 */
+  .wdow {
+    padding: 8px 8px 4px;
+  }
+  .wdow span {
+    font-size: 0.7rem;
+    letter-spacing: 0;
+  }
+  .days {
+    padding: 2px 8px 12px;
+  }
+  .cell .num {
+    font-size: 1.04rem;
+  }
+  .cell .lun {
+    font-size: 0.68rem;
+  }
+  .cell .seal {
+    font-size: 0.6rem;
+    width: 16px;
+    height: 16px;
+  }
+  .cell.today::after {
+    font-size: 0.56rem;
+  }
+}
+
+/* 触屏设备（含触屏平板）下节假日卡片点击不再残留 hover 阴影（覆盖 naive-ui hoverable 变量） */
+@media (hover: none) {
+  .hol-card {
+    --n-box-shadow-hover: var(--shadow);
   }
 }
 

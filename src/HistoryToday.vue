@@ -54,14 +54,22 @@ async function load(force = false) {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch(`${API_URL}?key=${encodeURIComponent(API_KEY)}`)
+    // 10 秒超时：弱网挂起时进入错误态并展示"重新加载"，而非永久骨架屏
+    const res = await fetch(`${API_URL}?key=${encodeURIComponent(API_KEY)}`, {
+      signal: AbortSignal.timeout(10000),
+    })
     const json = await res.json()
     if (json.code !== 200 && json.code !== 201) throw new Error(json.msg || '接口返回异常')
     items.value = json.data ?? []
     localStorage.setItem(cacheKey, JSON.stringify(items.value))
     loaded = true
   } catch (e) {
-    error.value = e instanceof Error ? e.message : '加载失败，请稍后重试'
+    error.value =
+      e instanceof DOMException && e.name === 'AbortError'
+        ? '请求超时，网络可能不稳定，请稍后重试'
+        : e instanceof Error
+          ? e.message
+          : '加载失败，请稍后重试'
   } finally {
     loading.value = false
   }
@@ -84,15 +92,69 @@ function onPanelWheel(e: WheelEvent) {
   const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 1
   if ((e.deltaY <= 0 && atTop) || (e.deltaY >= 0 && atBottom)) e.preventDefault()
 }
+// 抽屉/浮窗断点，与 CSS 中 @media (max-width: 600px) 保持一致
+const isNarrow = () => window.matchMedia('(max-width: 600px)').matches
+
 watch(open, async (v) => {
   if (!v) {
     document.removeEventListener('pointerdown', onDocPointerDown)
+    // 关闭后解除背景滚动锁定（桌面端本来就不锁，置空无副作用）
+    document.body.style.overflow = ''
     return
   }
+  // 移动端底部抽屉：锁定背景页面滚动，避免列表滚到边界时链动整页
+  if (isNarrow()) document.body.style.overflow = 'hidden'
   await nextTick()
-  panelRef.value?.addEventListener('wheel', onPanelWheel, { passive: false })
+  const panel = panelRef.value
+  if (panel) {
+    // 清掉上次下拉手势可能残留的内联变换，保证入场动画从 CSS 起点开始
+    panel.style.transform = ''
+    panel.style.transition = ''
+    panel.addEventListener('wheel', onPanelWheel, { passive: false })
+  }
   document.addEventListener('pointerdown', onDocPointerDown)
 })
+
+// ============ 移动端下拉关闭手势（仅触摸头部区域时生效，不影响列表滚动） ============
+let dragging = false
+let dragStartY = 0
+
+function onDragStart(e: TouchEvent) {
+  if (!isNarrow() || !(e.target instanceof Element) || !e.target.closest('.ht-head')) return
+  dragging = true
+  dragStartY = e.touches[0].clientY
+}
+
+function onDragMove(e: TouchEvent) {
+  if (!dragging || !panelRef.value) return
+  // 只响应向下拖动；关闭 CSS 过渡使面板严格跟随手指
+  const dy = Math.max(0, e.touches[0].clientY - dragStartY)
+  panelRef.value.style.transition = 'none'
+  panelRef.value.style.transform = `translateY(${dy}px)`
+}
+
+function onDragEnd(e: TouchEvent) {
+  if (!dragging) return
+  dragging = false
+  const panel = panelRef.value
+  if (!panel) return
+  const dy = Math.max(0, e.changedTouches[0].clientY - dragStartY)
+  if (dy > 90) {
+    // 超过阈值：先定格在手位置，两帧后交还离场动画类，从当前位置继续滑到底部，避免瞬跳
+    panel.style.transition = ''
+    panel.style.transform = `translateY(${dy}px)`
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        panel.style.transform = ''
+      })
+    })
+    open.value = false
+  } else {
+    // 未超阈值：移除内联样式，由 CSS 过渡回弹归位
+    panel.style.transition = ''
+    panel.style.transform = ''
+  }
+}
 
 // 点击浮窗外部任意区域关闭（pointerdown 同时覆盖鼠标/触摸/笔；浮窗内部点击不触发）
 function onDocPointerDown(e: PointerEvent) {
@@ -101,6 +163,7 @@ function onDocPointerDown(e: PointerEvent) {
 }
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocPointerDown)
+  document.body.style.overflow = ''
 })
 
 const yearLabel = (y: string) => {
@@ -117,9 +180,24 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
     历史上的今天
   </button>
 
-  <!-- 展开态：浮窗面板 -->
+  <!-- 展开态遮罩：仅移动端显示（桌面保持无遮罩浮窗）；点击外部统一由 pointerdown 关闭 -->
+  <Transition name="ht-mask">
+    <div v-if="open" class="ht-mask" aria-hidden="true"></div>
+  </Transition>
+
+  <!-- 展开态：桌面为右侧浮窗，移动端（≤600px）为底部抽屉，头部区域可下拉关闭 -->
   <Transition name="ht">
-    <div v-if="open" ref="panelRef" class="ht-panel" role="dialog" aria-label="历史上的今天">
+    <div
+      v-if="open"
+      ref="panelRef"
+      class="ht-panel"
+      role="dialog"
+      aria-label="历史上的今天"
+      @touchstart.passive="onDragStart"
+      @touchmove.passive="onDragMove"
+      @touchend="onDragEnd"
+      @touchcancel="onDragEnd"
+    >
       <header class="ht-head">
         <span class="ht-wm" aria-hidden="true">史</span>
         <div>
@@ -184,7 +262,8 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
 /* ============ 收起态竖排签 ============ */
 .ht-tab {
   position: fixed;
-  right: 0;
+  /* 刘海机横屏时竖排签避让右侧灵动岛/圆角 */
+  right: env(safe-area-inset-right, 0px);
   top: 50%;
   z-index: 70;
   transform: translateY(-50%);
@@ -205,8 +284,10 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
   transition: padding 0.3s ease, opacity 0.4s ease-out 450ms,
     transform 0.4s ease-out 450ms, visibility 0s linear 450ms;
 }
-.ht-tab:hover {
-  padding-right: 18px;
+@media (hover: hover) and (pointer: fine) {
+  .ht-tab:hover {
+    padding-right: 18px;
+  }
 }
 .ht-tab--hide {
   opacity: 0;
@@ -220,12 +301,15 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
 /* ============ 浮窗面板 ============ */
 .ht-panel {
   position: fixed;
-  right: clamp(8px, 2vw, 24px);
+  /* 右侧间距取视觉留白与刘海安全区两者中的较大值 */
+  right: max(clamp(8px, 2vw, 24px), env(safe-area-inset-right, 0px));
   top: 50%;
   z-index: 71;
   transform: translateY(-50%);
   width: min(384px, 92vw);
   max-height: min(76vh, 680px);
+  /* dvh 跟随 iOS 动态工具栏高度，避免地址栏收缩时面板高度跳动（不支持的浏览器沿用上一行 vh） */
+  max-height: min(76dvh, 680px);
   display: flex;
   flex-direction: column;
   background: var(--card);
@@ -234,6 +318,8 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   overscroll-behavior: contain;
+  /* 移动端抽屉下拉未达阈值时，靠此过渡回弹归位（入场/离场过渡由 .ht-enter/leave-active 覆盖） */
+  transition: transform 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 /* 装裱式内描金细框 */
 .ht-panel::after {
@@ -409,14 +495,17 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
   min-width: 0;
   transition: transform 0.3s ease;
 }
-.ht-item:hover .ht-body {
-  transform: translateX(3px);
-}
-.ht-item:hover a.ht-item-title {
-  color: var(--red);
-}
-.ht-item:hover .ht-dot {
-  transform: scale(1.4);
+/* 列表项悬停反馈仅在鼠标设备生效，避免触屏点击后位移/变色粘滞 */
+@media (hover: hover) and (pointer: fine) {
+  .ht-item:hover .ht-body {
+    transform: translateX(3px);
+  }
+  .ht-item:hover a.ht-item-title {
+    color: var(--red);
+  }
+  .ht-item:hover .ht-dot {
+    transform: scale(1.4);
+  }
 }
 .ht-item-title {
   display: block;
@@ -428,8 +517,10 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
   text-decoration: none;
   transition: color 0.25s ease;
 }
-a.ht-item-title:hover {
-  color: var(--red);
+@media (hover: hover) and (pointer: fine) {
+  a.ht-item-title:hover {
+    color: var(--red);
+  }
 }
 .ht-seal {
   display: inline-block;
@@ -526,9 +617,11 @@ a.ht-item-title:hover {
   cursor: pointer;
   transition: background 0.25s ease, color 0.25s ease;
 }
-.ht-retry:hover {
-  background: var(--red);
-  color: #fff;
+@media (hover: hover) and (pointer: fine) {
+  .ht-retry:hover {
+    background: var(--red);
+    color: #fff;
+  }
 }
 
 /* ============ 底部 ============ */
@@ -551,9 +644,63 @@ a.ht-item-title:focus-visible {
   outline-offset: 2px;
 }
 
+/* ============ 移动端遮罩（桌面端隐藏，保持无遮罩浮窗形态） ============ */
+.ht-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: none;
+  background: rgba(20, 15, 8, 0.5);
+}
+.ht-mask-enter-active,
+.ht-mask-leave-active {
+  transition: opacity 0.4s ease;
+}
+.ht-mask-enter-from,
+.ht-mask-leave-to {
+  opacity: 0;
+}
+
+/* ============ 移动端（≤600px）：右侧浮窗 → 底部动作面板 ============ */
 @media (max-width: 600px) {
+  .ht-mask {
+    display: block;
+  }
   .ht-panel {
-    right: 4vw;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: 82vh;
+    max-height: 82dvh;
+    border-radius: 18px 18px 0 0;
+    transform: none;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  /* 抽屉从屏幕底部滑入/滑出（覆盖桌面态的横向位移关键帧） */
+  .ht-enter-from,
+  .ht-leave-to {
+    transform: translateY(100%);
+  }
+  /* 顶部拖拽把手（纯视觉，触摸事件由头部区域承接） */
+  .ht-panel::before {
+    content: '';
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    z-index: 2;
+    width: 38px;
+    height: 4px;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: var(--line-2);
+    opacity: 0.8;
+    pointer-events: none;
+  }
+  .ht-head {
+    padding-top: 21px;
+    touch-action: pan-y;
   }
 }
 </style>

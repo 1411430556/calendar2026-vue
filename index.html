@@ -2,7 +2,8 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover：允许页面延伸进刘海/圆角区域，由 CSS env(safe-area-inset-*) 避让 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta
       name="description"
       content="2026年完整日历，标注国务院办公厅法定节假日放假调休安排、补班日、农历、二十四节气与传统节日。数据依据国办发明电〔2025〕7号。"
@@ -11,10 +12,30 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- 数据接口域名预解析：移动网络下省掉首次请求时的 DNS 查询时间 -->
+    <link rel="dns-prefetch" href="https://api.shwgij.com" />
+    <!--
+      字体 CSS 异步加载：Google Fonts 在国内弱网下可能长时间挂起，
+      渲染阻塞会导致整页白屏。先以 print 媒体类型请求（不阻塞渲染），
+      加载完成后切回 all；失败则由 font-family 中的系统字体兜底。
+    -->
     <link
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=Noto+Sans+SC:wght@300;400;500;700&family=Ma+Shan+Zheng&display=swap"
-      rel="stylesheet"
     />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=Noto+Sans+SC:wght@300;400;500;700&family=Ma+Shan+Zheng&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=Noto+Sans+SC:wght@300;400;500;700&family=Ma+Shan+Zheng&display=swap"
+      />
+    </noscript>
   </head>
   <body>
     <div id="app"></div>
