@@ -44,7 +44,7 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // 同源静态资源（js/css/图片/字体分片）：cache-first，未命中时拉取并入库
+  // 同源静态资源（js/css/图片）：cache-first，未命中时拉取并入库
   event.respondWith(
     caches.match(req).then(
       (hit) =>
