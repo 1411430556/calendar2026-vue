@@ -64,10 +64,6 @@
 | --- | --- |
 | ![法定节假日一览](docs/screenshots/overview.png) | ![逐月日历](docs/screenshots/calendar.png) |
 
-| 移动端 |
-| --- |
-| ![移动端](docs/screenshots/mobile.png) |
-
 ## 技术栈
 
 | 类别 | 选型 |
