@@ -736,8 +736,10 @@ footer .wrap {
     grid-template-columns: 1fr;
     gap: 34px;
   }
+  /* 平板单列区间撕历卡放大，消除 600-860px 两侧空旷（手机视口不足时仍以 width:100% 收缩） */
   .tear {
     transform: rotate(0);
+    max-width: 400px;
   }
   .year-side {
     flex-direction: row;
