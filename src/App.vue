@@ -10,7 +10,10 @@ import {
   NDivider,
   NGrid,
   NGi,
+  NBackTop,
+  NIcon,
 } from 'naive-ui'
+import { ArrowUp } from '@vicons/ionicons5'
 import { CAL, HOLIDAYS, type DayInfo } from './data/calendar2026'
 import { initCursorEffect } from './cursorEffect'
 import HistoryToday from './HistoryToday.vue'
@@ -41,7 +44,14 @@ const themeOverrides = {
     actionColor: '#FBF7EE',
     borderRadius: '14px',
     borderRadiusSmall: '9px',
-    fontFamily: '"Noto Sans SC", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
+    fontFamily: `'阿里妈妈东方大楷 Regular', system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif`,
+    // naive-ui 组件字号是独立 px 体系，不随 html 的 rem 基准缩放，需按 112.5% 同步提升（默认 14/12/15/16）
+    fontSize: '16px',
+    fontSizeMedium: '16px',
+    fontSizeSmall: '16px',
+    fontSizeTiny: '13.5px',
+    fontSizeLarge: '17px',
+    fontSizeHuge: '18px',
     fontWeight: '400',
     fontWeightStrong: '700',
     lineHeight: '1.6',
@@ -167,12 +177,13 @@ function onNavClick(m: number) {
   activeMonth.value = m
   lockUntil = Date.now() + 900
   // 按钮替代了原 <a href="#mN"> 锚点，需手动滚动。用 offsetTop（布局位置）计算落点，
-  // 避免月卡入场动画的 translateY 变换在滚动期间被移除导致 scrollIntoView 落点偏差
+  // 避免月卡入场动画的 translateY 变换在滚动期间被移除导致 scrollIntoView 落点偏差；
+  // 落点按整个置顶头（导航 + 每日一言）的高度留白，避免月卡标题被吸顶头遮挡
   const el = document.getElementById('m' + m)
   if (!el) return
-  const navH = document.getElementById('monthnav')?.offsetHeight ?? 0
+  const headH = document.querySelector<HTMLElement>('.sticky-head')?.offsetHeight ?? 0
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  window.scrollTo({ top: el.offsetTop - navH - 8, behavior: reduce ? 'auto' : 'smooth' })
+  window.scrollTo({ top: el.offsetTop - headH - 8, behavior: reduce ? 'auto' : 'smooth' })
 }
 
 function cellClasses(d: DayInfo) {
@@ -230,7 +241,8 @@ onMounted(() => {
       if (visible.size === 0) return
       activeMonth.value = clicked != null && visible.has(clicked) ? clicked : Math.min(...visible)
     },
-    { rootMargin: '-64px 0px -66% 0px', threshold: 0 },
+    // 检测带上沿取整个置顶头（导航 + 每日一言）实际高度，月卡滚过吸顶头后才切换高亮
+    { rootMargin: `${-(document.querySelector<HTMLElement>('.sticky-head')?.offsetHeight ?? 64)}px 0px -66% 0px`, threshold: 0 },
   )
   document.querySelectorAll('.month').forEach((el) => spyIO?.observe(el))
 })
@@ -286,29 +298,31 @@ onUnmounted(() => {
         </div>
       </header>
 
-      <!-- ============ MONTH NAV ============ -->
-      <nav class="monthnav" id="monthnav">
-        <div class="wrap">
-          <div class="monthnav-inner">
-            <n-button
-              v-for="{ m } in months"
-              :key="m"
-              :type="activeMonth === m ? 'primary' : 'default'"
-              :ghost="activeMonth !== m"
-              size="small"
-              @click="onNavClick(m)"
-            >
-              {{ m }}月
-              <n-tag v-if="MONTH_HOL[m]" size="tiny" round :bordered="false" style="margin-left:6px;background:#B98F3E;color:#fff">
-                {{ MONTH_HOL[m] }}
-              </n-tag>
-            </n-button>
+      <!-- ============ 置顶头：月份导航 + 每日一言（作为一个整体吸顶） ============ -->
+      <div class="sticky-head">
+        <nav class="monthnav" id="monthnav">
+          <div class="wrap">
+            <div class="monthnav-inner">
+              <n-button
+                v-for="{ m } in months"
+                :key="m"
+                :type="activeMonth === m ? 'primary' : 'default'"
+                :ghost="activeMonth !== m"
+                size="small"
+                @click="onNavClick(m)"
+              >
+                {{ m }}月
+                <n-tag v-if="MONTH_HOL[m]" size="tiny" round :bordered="false" style="margin-left:6px;background:#B98F3E;color:#fff">
+                  {{ MONTH_HOL[m] }}
+                </n-tag>
+              </n-button>
+            </div>
           </div>
-        </div>
-      </nav>
+        </nav>
 
-      <!-- ============ 每日一言 ============ -->
-      <DailyQuote />
+        <!-- ============ 每日一言 ============ -->
+        <DailyQuote />
+      </div>
 
       <!-- ============ OVERVIEW ============ -->
       <section id="overview" class="wrap">
@@ -322,22 +336,22 @@ onUnmounted(() => {
         <n-grid :cols="statCols" :x-gap="14" :y-gap="14" style="margin: 26px 0 34px">
           <n-gi>
             <div class="stat-card">
-              <n-statistic label="放假调休总天数" :value="33" :value-style="{ color: '#BE3A2B', fontFamily: 'Noto Serif SC, serif', fontWeight: 900 }" />
+              <n-statistic label="放假调休总天数" :value="33" :value-style="{ color: '#BE3A2B', fontFamily: `'阿里妈妈东方大楷 Regular', serif`, fontWeight: 900 }" />
             </div>
           </n-gi>
           <n-gi>
             <div class="stat-card">
-              <n-statistic label="周末补班天数" :value="6" :value-style="{ color: '#B98F3E', fontFamily: 'Noto Serif SC, serif', fontWeight: 900 }" />
+              <n-statistic label="周末补班天数" :value="6" :value-style="{ color: '#B98F3E', fontFamily: `'阿里妈妈东方大楷 Regular', serif`, fontWeight: 900 }" />
             </div>
           </n-gi>
           <n-gi>
             <div class="stat-card">
-              <n-statistic label="二十四节气" :value="24" :value-style="{ color: '#2F5D55', fontFamily: 'Noto Serif SC, serif', fontWeight: 900 }" />
+              <n-statistic label="二十四节气" :value="24" :value-style="{ color: '#2F5D55', fontFamily: `'阿里妈妈东方大楷 Regular', serif`, fontWeight: 900 }" />
             </div>
           </n-gi>
           <n-gi>
             <div class="stat-card">
-              <n-statistic :label="`${GANZHI}${ZODIAC_CHAR}年 · 天`" :value="365" :value-style="{ color: '#4A4238', fontFamily: 'Noto Serif SC, serif', fontWeight: 900 }" />
+              <n-statistic :label="`${GANZHI}${ZODIAC_CHAR}年 · 天`" :value="365" :value-style="{ color: '#4A4238', fontFamily: `'阿里妈妈东方大楷 Regular', serif`, fontWeight: 900 }" />
             </div>
           </n-gi>
         </n-grid>
@@ -352,11 +366,11 @@ onUnmounted(() => {
               <div class="hol-range">{{ h.range }}</div>
               <div class="hol-sub">{{ h.sub }}</div>
               <n-tag
+                class="hol-makeup"
                 :type="h.hasMakeup ? 'warning' : 'success'"
                 size="small"
                 round
                 :bordered="false"
-                style="margin-top:12px"
               >
                 {{ h.hasMakeup ? '↻ ' : '✓ ' }}{{ h.makeup }}
               </n-tag>
@@ -449,6 +463,11 @@ onUnmounted(() => {
           <div class="foot-src">© {{ YEAR }} 全年节假日日历 · 仅供参考，最终以国务院办公厅正式通知为准。</div>
         </div>
       </footer>
+
+      <!-- ============ 回到顶部：滚动超过 200px 显示，点击平滑回顶 ============ -->
+      <n-back-top :visibility-height="200" :right="24" :bottom="32">
+        <n-icon size="22" color="#BE3A2B"><ArrowUp /></n-icon>
+      </n-back-top>
     </div>
   </n-config-provider>
 </template>

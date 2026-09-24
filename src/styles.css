@@ -1,3 +1,11 @@
+/* ============ 站点字体：阿里妈妈东方大楷（自托管全量 woff2，OFL 开源免费商用） ============ */
+@font-face {
+  font-family: '阿里妈妈东方大楷 Regular';
+  font-weight: 400;
+  src: url('./assets/fonts/AlimamaDongFangDaKai-Regular.woff2') format('woff2');
+  font-display: swap;
+}
+
 /* ============ 设计令牌（与 naive-ui themeOverrides 对齐） ============ */
 :root {
   --paper: #f3ede0;
@@ -35,10 +43,13 @@
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  /* 全局字号基准：18px（浏览器默认 16px 的 112.5%）。
+     全站字号以 rem 声明，改这一个值即可整体等比缩放，各层级比例保持不变 */
+  font-size: 112.5%;
 }
 
 body {
-  font-family: "Noto Sans SC", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: '阿里妈妈东方大楷 Regular', system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
   color: var(--ink);
   background: var(--paper);
   background-image: radial-gradient(circle at 1px 1px, rgba(120, 100, 70, 0.05) 1px, transparent 0);
@@ -57,7 +68,7 @@ h1,
 h2,
 h3,
 .serif {
-  font-family: "Noto Serif SC", Georgia, serif;
+  font-family: '阿里妈妈东方大楷 Regular', Georgia, serif;
 }
 
 .wrap {
@@ -69,7 +80,7 @@ h3,
 }
 
 .brush {
-  font-family: "Ma Shan Zheng", "Noto Serif SC", serif;
+  font-family: '阿里妈妈东方大楷 Regular', serif;
 }
 
 /* ============ HERO ============ */
@@ -86,10 +97,10 @@ h3,
 .hero::before {
   content: "馬";
   position: absolute;
-  right: -2vw;
-  top: -4vh;
+  right: 0vw;
+  top: 1vh;
   line-height: 1;
-  font-family: "Ma Shan Zheng", serif;
+  font-family: '阿里妈妈东方大楷 Regular', serif;
   font-size: min(46vh, 46vw);
   color: #fff;
   opacity: 0.035;
@@ -135,27 +146,25 @@ h3,
 
 .year-row {
   display: flex;
-  align-items: flex-start;
+  /* 大年份与右侧干支列垂直居中：对齐不依赖字体度量，换字体后依然成立 */
+  align-items: center;
   gap: clamp(14px, 2vw, 26px);
 }
 
 .year-big {
-  font-family: "Noto Serif SC", serif;
+  font-family: '阿里妈妈东方大楷 Regular', serif;
   font-weight: 900;
   line-height: 0.8;
   letter-spacing: -0.02em;
-  font-size: clamp(74px, 12.5vw, 158px);
+  font-size: clamp(4.625rem, 12.5vw, 9.875rem);
   background: linear-gradient(180deg, #fff6e2 8%, var(--gold-2) 56%, #9a7a34 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
-  padding-bottom: 0.16em;
-  margin-bottom: -0.12em;
 }
 
 .year-side {
-  padding-top: 0.5em;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -163,8 +172,8 @@ h3,
 
 .ganzhi {
   writing-mode: vertical-rl;
-  font-family: "Ma Shan Zheng", serif;
-  font-size: clamp(20px, 2.6vw, 30px);
+  font-family: '阿里妈妈东方大楷 Regular', serif;
+  font-size: clamp(1.25rem, 2.6vw, 1.875rem);
   letter-spacing: 0.16em;
   color: var(--gold-2);
   border-left: 1px solid rgba(217, 188, 116, 0.35);
@@ -172,7 +181,7 @@ h3,
 }
 
 .hero h1 {
-  font-size: clamp(21px, 2.7vw, 32px);
+  font-size: clamp(1.3125rem, 2.7vw, 2rem);
   font-weight: 700;
   letter-spacing: 0.04em;
   margin-top: 4px;
@@ -250,10 +259,10 @@ h3,
 }
 
 .tear-day {
-  font-family: "Noto Serif SC", serif;
+  font-family: '阿里妈妈东方大楷 Regular', serif;
   font-weight: 900;
   line-height: 0.86;
-  font-size: clamp(84px, 15vw, 124px);
+  font-size: clamp(5.25rem, 15vw, 7.75rem);
   color: var(--ink);
   position: relative;
   display: inline-block;
@@ -268,7 +277,7 @@ h3,
 }
 
 .tear-lunar {
-  font-family: "Noto Serif SC", serif;
+  font-family: '阿里妈妈东方大楷 Regular', serif;
   font-size: 1.12rem;
   color: var(--teal);
   margin-top: 6px;
@@ -289,7 +298,7 @@ h3,
   color: var(--red);
   border-radius: 8px;
   padding: 5px 15px;
-  font-family: "Noto Serif SC", serif;
+  font-family: '阿里妈妈东方大楷 Regular', serif;
   font-weight: 700;
   font-size: 1rem;
   letter-spacing: 0.14em;
@@ -313,12 +322,19 @@ h3,
 }
 
 /* ============ 月份导航 ============ */
-.monthnav {
+/* 置顶头容器：月份导航 + 每日一言整体吸顶（滚动时始终钉在页面顶部） */
+.sticky-head {
   position: sticky;
   top: 0;
   z-index: 40;
   background: rgba(243, 237, 224, 0.86);
   backdrop-filter: saturate(140%) blur(10px);
+  /* Safari 需要 -webkit- 前缀，否则只有半透明底没有毛玻璃 */
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+}
+
+.monthnav {
+  /* 吸顶由 .sticky-head 统一承担，导航条自身只保留行内样式 */
   border-bottom: 1px solid var(--line);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset;
   /* 刘海机全屏运行时导航条顶部延伸进安全区 */
@@ -387,6 +403,18 @@ section {
 .hol-card {
   position: relative;
   overflow: hidden;
+  /* 拉伸到所在 n-gi 的行高，保证同一行卡片等高（国庆节等长文案卡片不再突出） */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 内容区 flex 列布局：补班标签用 margin-top:auto 统一锚在卡片底部 */
+.hol-card .n-card__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .hol-card::before {
@@ -406,7 +434,7 @@ section {
   position: absolute;
   right: 12px;
   top: 8px;
-  font-family: "Ma Shan Zheng", serif;
+  font-family: '阿里妈妈东方大楷 Regular', serif;
   font-size: 56px;
   color: var(--red);
   opacity: 0.06;
@@ -416,7 +444,7 @@ section {
 }
 
 .hol-name {
-  font-family: "Noto Serif SC", serif;
+  font-family: '阿里妈妈东方大楷 Regular', serif;
   font-size: 1.3rem;
   font-weight: 700;
   display: flex;
@@ -432,8 +460,21 @@ section {
 
 .hol-sub {
   margin-top: 5px;
+  margin-bottom: 12px;
   color: var(--ink-3);
   font-size: 0.85rem;
+}
+
+/* 补班说明可能很长（如国庆节列出两个补班日期），n-tag 默认 nowrap + 固定高度
+   会把行尾的"班"字裁掉，这里放开换行让标签纵向伸展 */
+.hol-card .hol-makeup {
+  height: auto;
+  white-space: normal;
+  line-height: 1.5;
+  text-align: left;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  margin-top: auto;
 }
 
 /* ============ 图例 ============ */
@@ -500,14 +541,14 @@ section {
 }
 
 .month-head .mname {
-  font-family: "Noto Serif SC", serif;
+  font-family: '阿里妈妈东方大楷 Regular', serif;
   font-size: 1.42rem;
   font-weight: 900;
   letter-spacing: 0.04em;
 }
 
 .month-head .mnum {
-  font-family: "Noto Serif SC", serif;
+  font-family: '阿里妈妈东方大楷 Regular', serif;
   font-weight: 900;
   font-size: 0.9rem;
   color: var(--gold);
@@ -576,7 +617,7 @@ section {
 }
 
 .cell .num {
-  font-family: "Noto Serif SC", serif;
+  font-family: '阿里妈妈东方大楷 Regular', serif;
   font-size: 1.12rem;
   font-weight: 700;
   line-height: 1.02;
@@ -629,7 +670,7 @@ section {
   position: absolute;
   top: -3px;
   right: -2px;
-  font-family: "Noto Serif SC", serif;
+  font-family: '阿里妈妈东方大楷 Regular', serif;
   font-size: 0.54rem;
   font-weight: 700;
   width: 15px;
@@ -667,7 +708,7 @@ section {
   background: var(--teal);
   border-radius: 4px 0 6px 0;
   padding: 0 3px;
-  font-family: "Noto Serif SC";
+  font-family: '阿里妈妈东方大楷 Regular', serif;
   font-weight: 700;
 }
 
@@ -695,7 +736,7 @@ footer .wrap {
 }
 
 .foot-brand {
-  font-family: "Ma Shan Zheng", serif;
+  font-family: '阿里妈妈东方大楷 Regular', serif;
   font-size: 1.7rem;
   color: var(--gold-2);
 }
@@ -743,7 +784,6 @@ footer .wrap {
   }
   .year-side {
     flex-direction: row;
-    padding-top: 0.2em;
   }
   .ganzhi {
     writing-mode: horizontal-tb;

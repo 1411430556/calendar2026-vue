@@ -91,9 +91,9 @@ onMounted(load)
   place-items: center;
   background: linear-gradient(165deg, var(--red) 0%, var(--red-deep) 100%);
   color: #fff;
-  font-family: 'Noto Serif SC', Georgia, serif;
+  font-family: '阿里妈妈东方大楷 Regular', Georgia, serif;
   font-weight: 700;
-  font-size: 18px;
+  font-size: 1.125rem;
   border-radius: 10px;
   box-shadow: 0 2px 6px rgba(142, 42, 30, 0.25);
   transform: rotate(-4deg);
@@ -108,7 +108,7 @@ onMounted(load)
 }
 .dq-text {
   margin: 0;
-  font-family: 'Noto Serif SC', Georgia, serif;
+  font-family: '阿里妈妈东方大楷 Regular', Georgia, serif;
   font-size: 1.06rem;
   color: var(--ink);
   letter-spacing: 0.02em;
@@ -168,7 +168,7 @@ onMounted(load)
   .dq-seal {
     width: 34px;
     height: 34px;
-    font-size: 16px;
+    font-size: 1rem;
   }
   .dq-text {
     font-size: 0.98rem;

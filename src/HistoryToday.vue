@@ -270,8 +270,8 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
   writing-mode: vertical-rl;
   letter-spacing: 0.42em;
   padding: 20px 11px;
-  font-family: 'Noto Serif SC', Georgia, serif;
-  font-size: 14px;
+  font-family: '阿里妈妈东方大楷 Regular', Georgia, serif;
+  font-size: 0.875rem;
   font-weight: 700;
   color: #fff;
   background: linear-gradient(165deg, var(--red) 0%, var(--red-deep) 100%);
@@ -357,7 +357,7 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
   right: 44px;
   top: 50%;
   transform: translateY(-46%) rotate(10deg);
-  font-family: 'Noto Serif SC', Georgia, serif;
+  font-family: '阿里妈妈东方大楷 Regular', Georgia, serif;
   font-size: 78px;
   font-weight: 900;
   line-height: 1;
@@ -387,7 +387,7 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
 }
 .ht-date-seal {
   display: inline-block;
-  font-family: 'Noto Serif SC', Georgia, serif;
+  font-family: '阿里妈妈东方大楷 Regular', Georgia, serif;
   background: var(--card);
   border: 1.5px solid var(--red);
   color: var(--red);
@@ -452,8 +452,8 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
 }
 
 .ht-year {
-  font-family: 'Noto Serif SC', Georgia, serif;
-  font-size: 12px;
+  font-family: '阿里妈妈东方大楷 Regular', Georgia, serif;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--ink-3);
   text-align: right;
@@ -509,7 +509,7 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
 }
 .ht-item-title {
   display: block;
-  font-family: 'Noto Serif SC', Georgia, serif;
+  font-family: '阿里妈妈东方大楷 Regular', Georgia, serif;
   font-size: 0.92rem;
   font-weight: 700;
   color: var(--ink-2);
@@ -602,7 +602,7 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
   border-radius: 50%;
   background: var(--red-tint);
   color: var(--red);
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 700;
   line-height: 40px;
 }

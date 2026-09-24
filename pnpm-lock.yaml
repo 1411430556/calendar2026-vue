@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@vicons/ionicons5':
+        specifier: ^0.13.0
+        version: 0.13.0
       naive-ui:
         specifier: ^2.45.3
         version: 2.45.3(vue@3.5.43(typescript@5.8.3))
@@ -410,6 +413,9 @@ packages:
 
   '@types/lodash@4.17.25':
     resolution: {integrity: sha512-+K1NIO8I+F9/wNulfVvu23QYd0Pe9/OCqRrim4NoYIf1VoEDL90Ve4ClzpyqBLc7NpGGWRvYNCKZ1BE/Jpf8dQ==}
+
+  '@vicons/ionicons5@0.13.0':
+    resolution: {integrity: sha512-zvZKBPjEXKN7AXNo2Na2uy+nvuv6SP4KAMQxpKL2vfHMj0fSvuw7JZcOPCjQC3e7ayssKnaoFVAhbYcW6v41qQ==}
 
   '@vitejs/plugin-vue@6.0.9':
     resolution: {integrity: sha512-rD/MORlhaZMlXWW0rEn4FB4wMinWC0z/D7Ye160S5+Rs1mC8ZDAdcDp4SjKfUhG5t8q1ktcPVw4xuTkPRlzrSA==}
@@ -981,6 +987,8 @@ snapshots:
       '@types/lodash': 4.17.25
 
   '@types/lodash@4.17.25': {}
+
+  '@vicons/ionicons5@0.13.0': {}
 
   '@vitejs/plugin-vue@6.0.9(vite@7.3.6)(vue@3.5.43(typescript@5.8.3))':
     dependencies:
