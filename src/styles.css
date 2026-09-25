@@ -870,3 +870,13 @@ footer .wrap {
     transform: none !important;
   }
 }
+
+/* ============ 右侧浮窗互斥避让 ============
+   百度热搜浮窗打开时（html.hotnews-open）隐藏「历史上的今天」侧签；
+   「历史上的今天」浮窗打开时（:has(.ht-panel)）隐藏百度热搜侧签 */
+html.hotnews-open .ht-tab,
+html:has(.ht-panel) .hw-tab {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}

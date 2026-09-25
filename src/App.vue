@@ -18,6 +18,7 @@ import { CAL, HOLIDAYS, type DayInfo } from './data/calendar2026'
 import { initCursorEffect } from './cursorEffect'
 import HistoryToday from './HistoryToday.vue'
 import DailyQuote from './DailyQuote.vue'
+import HotNews from './HotNews.vue'
 
 // ============ 中国风主题令牌（对齐 naive-ui） ============
 const themeOverrides = {
@@ -440,6 +441,9 @@ onUnmounted(() => {
 
       <!-- ============ 历史上的今天浮窗 ============ -->
       <HistoryToday />
+
+      <!-- ============ 百度热搜新闻榜浮窗 ============ -->
+      <HotNews />
 
       <!-- ============ FOOTER ============ -->
       <footer>
