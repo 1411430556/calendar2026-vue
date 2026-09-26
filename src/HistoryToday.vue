@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { beijingNow } from './utils/beijing'
 
 interface HistoryItem {
   ranking: number
@@ -24,9 +25,6 @@ const typeOf = (t: string) => TYPE_MAP[t] ?? TYPE_MAP.event
 
 const pad = (n: number) => String(n).padStart(2, '0')
 // API 按北京时间返回"今天"，统一换算成 UTC+8 再取日期，避免访客时区导致缓存键与内容错位
-function beijingNow() {
-  return new Date(Date.now() + (480 + new Date().getTimezoneOffset()) * 60_000)
-}
 const bj = beijingNow()
 const dateLabel = `${bj.getUTCMonth() + 1}月${bj.getUTCDate()}日`
 const weekLabel = `星期${'日一二三四五六'[bj.getUTCDay()]}`
