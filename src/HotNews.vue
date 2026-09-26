@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { NIcon, NTabPane, NTabs } from 'naive-ui'
-import { ChevronForward, Close, Refresh } from '@vicons/ionicons5'
+import { Close, Refresh } from '@vicons/ionicons5'
 
 // ============ 类型定义 ============
 interface HotItem {
@@ -60,45 +60,6 @@ const memCache = new Map<string, CacheEntry>()
 let autoTimer: number | undefined
 let softTimer: number | undefined
 const panelRef = ref<HTMLElement | null>(null)
-
-// ============ Tabs 横向滚动提示 ============
-// naive-ui 标签栏由内部 .v-x-scroll 容器承载，可视区仅约 4 个标签，需要提示后方还有榜单
-const canScrollRight = ref(false)
-const canScrollLeft = ref(false)
-let tabScrollEl: HTMLElement | null = null
-let tabResizeObs: ResizeObserver | undefined
-
-function updateTabHint() {
-  const el = tabScrollEl
-  if (!el) return
-  canScrollLeft.value = el.scrollLeft > 2
-  canScrollRight.value = el.scrollLeft + el.clientWidth < el.scrollWidth - 2
-}
-// 点击右侧提示：平滑滚动近一屏，露出后面的榜单
-function scrollTabsByPage() {
-  tabScrollEl?.scrollBy({ left: tabScrollEl.clientWidth * 0.8, behavior: 'smooth' })
-}
-function bindTabScroll() {
-  tabScrollEl = panelRef.value?.querySelector('.v-x-scroll') ?? null
-  if (!tabScrollEl) return
-  tabScrollEl.addEventListener('scroll', updateTabHint, { passive: true })
-  // 字体加载、窗口缩放等都会改变标签总宽：观察滚动元素及其内容尺寸
-  tabResizeObs = new ResizeObserver(updateTabHint)
-  tabResizeObs.observe(tabScrollEl)
-  const content = tabScrollEl.querySelector('.n-tabs-nav-scroll-content')
-  if (content) tabResizeObs.observe(content)
-  // naive-ui 在打开动画后才完成布局，首帧 + 延时各测一次保证初始状态正确
-  requestAnimationFrame(updateTabHint)
-  window.setTimeout(updateTabHint, 350)
-}
-function unbindTabScroll() {
-  tabScrollEl?.removeEventListener('scroll', updateTabHint)
-  tabResizeObs?.disconnect()
-  tabResizeObs = undefined
-  tabScrollEl = null
-  canScrollLeft.value = false
-  canScrollRight.value = false
-}
 
 const currentLabel = computed(() => TABS.find((t) => t.key === activeTab.value)?.label ?? '热搜')
 const timeLabel = computed(() => {
@@ -303,12 +264,9 @@ async function fetchList(tab: string, silent: boolean) {
   }
 }
 
-// 切换榜单：加载数据；naive-ui 会平滑滚动把新标签带入可视区，滚动结束后再刷新提示
+// 切换榜单：加载数据
 watch(activeTab, (tab) => {
-  if (open.value) {
-    void loadTab(tab)
-    window.setTimeout(updateTabHint, 400)
-  }
+  if (open.value) void loadTab(tab)
 })
 
 // ============ 浮窗开关 ============
@@ -320,6 +278,11 @@ function openPanel() {
 }
 function closePanel() {
   open.value = false
+}
+
+// 面板离场动画结束后才摘除全局互斥标记：两个侧签同时开始回归过渡
+function onAfterLeave() {
+  if (!open.value) document.documentElement.classList.remove('hotnews-open')
 }
 
 // ============ 定时刷新（页面隐藏时暂停，可见时按需恢复） ============
@@ -347,12 +310,9 @@ function onVisibility() {
   startAuto()
 }
 
-// ============ 点击外部 / Esc 关闭 ============
+// ============ 点击外部关闭 ============
 function onDocPointerDown(e: PointerEvent) {
   if (panelRef.value && e.target instanceof Node && !panelRef.value.contains(e.target)) closePanel()
-}
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') closePanel()
 }
 
 // 滚轮锁定在浮窗内：列表滚到边界时拦截，防止链动整页
@@ -371,35 +331,29 @@ const isNarrow = () => window.matchMedia('(max-width: 600px)').matches
 watch(open, async (v) => {
   if (!v) {
     document.removeEventListener('pointerdown', onDocPointerDown)
-    document.removeEventListener('keydown', onKeydown)
     document.removeEventListener('visibilitychange', onVisibility)
-    // 移除互斥标记，恢复「历史上的今天」侧签
-    document.documentElement.classList.remove('hotnews-open')
+    // 注意：hotnews-open 不在此处摘除，需等面板离场动画结束（onAfterLeave），
+    // 否则本侧签会比「历史上的今天」提前恢复，两者回归不同步
     document.body.style.overflow = ''
     stopAuto()
-    unbindTabScroll()
     return
   }
-  // 打开期间隐藏「历史上的今天」侧签（全局 CSS 依据此标记处理）
+  // 打开期间隐藏两个侧签（全局 CSS 依据此标记处理，与「历史上的今天」同步隐藏）
   document.documentElement.classList.add('hotnews-open')
   if (isNarrow()) document.body.style.overflow = 'hidden'
   await nextTick()
   panelRef.value?.addEventListener('wheel', onPanelWheel, { passive: false })
   document.addEventListener('pointerdown', onDocPointerDown)
-  document.addEventListener('keydown', onKeydown)
   document.addEventListener('visibilitychange', onVisibility)
   startAuto()
-  bindTabScroll()
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocPointerDown)
-  document.removeEventListener('keydown', onKeydown)
   document.removeEventListener('visibilitychange', onVisibility)
   document.documentElement.classList.remove('hotnews-open')
   document.body.style.overflow = ''
   stopAuto()
-  unbindTabScroll()
   window.clearTimeout(softTimer)
 })
 
@@ -440,8 +394,9 @@ function changeMeta(v: string): { text: string; cls: string } {
 </script>
 
 <template>
-  <!-- 收起态：桌面为右侧竖排签（位于「历史上的今天」下方），移动端为左下角胶囊按钮 -->
-  <button class="hw-tab" :class="{ 'hw-tab--hide': open }" aria-label="查看百度热搜" @click="openPanel">
+  <!-- 收起态：桌面为右侧竖排签（位于「历史上的今天」下方），移动端为左下角胶囊按钮。
+       显隐由全局 html.hotnews-open / html.history-open 统一控制，保证两侧签同步 -->
+  <button class="hw-tab" aria-label="查看百度热搜" @click="openPanel">
     <span class="hw-tab-text">百度热搜</span>
   </button>
 
@@ -451,7 +406,7 @@ function changeMeta(v: string): { text: string; cls: string } {
   </Transition>
 
   <!-- 展开态：桌面为右侧浮窗，移动端（≤600px）为底部抽屉 -->
-  <Transition name="hw">
+  <Transition name="hw" @after-leave="onAfterLeave">
     <div v-if="open" ref="panelRef" class="hw-panel" role="dialog" aria-label="百度热搜新闻榜">
       <header class="hw-head">
         <div class="hw-head-info">
@@ -478,7 +433,7 @@ function changeMeta(v: string): { text: string; cls: string } {
       </header>
 
       <!-- 榜单切换；仅用其标签栏，列表区域由下方自定义渲染。
-           边缘渐隐层提示标签可横向滚动，右侧箭头可点击翻页 -->
+           标签栏向右出血至面板边缘外，后续标签被硬裁剪露出部分文字，直观提示还有更多榜单 -->
       <div class="hw-tabs-wrap">
         <n-tabs
           v-model:value="activeTab"
@@ -491,18 +446,6 @@ function changeMeta(v: string): { text: string; cls: string } {
             <template #tab>{{ t.label }}</template>
           </n-tab-pane>
         </n-tabs>
-        <!-- 左侧渐隐：滚离起始位置时出现，纯装饰 -->
-        <div v-if="canScrollLeft" class="hw-tab-fade hw-tab-fade--left" aria-hidden="true"></div>
-        <!-- 右侧渐隐 + 跳动箭头：还有榜单未露出时出现，点击平滑滚动 -->
-        <button
-          v-if="canScrollRight"
-          type="button"
-          class="hw-tab-fade hw-tab-fade--right"
-          aria-label="向后查看更多榜单"
-          @click="scrollTabsByPage"
-        >
-          <n-icon :size="15"><ChevronForward /></n-icon>
-        </button>
       </div>
 
       <div class="hw-list">
@@ -599,7 +542,8 @@ function changeMeta(v: string): { text: string; cls: string } {
   border-radius: 12px 0 0 12px;
   box-shadow: var(--shadow);
   cursor: pointer;
-  /* 回归延迟 450ms：等浮窗离场播完再淡入，避免突兀闪现 */
+  /* 回归延迟 450ms：等浮窗离场播完再淡入，避免突兀闪现；
+     隐藏态样式由全局 styles.css 的互斥避让规则统一提供（与 .ht-tab 同步） */
   transition: padding 0.3s ease, opacity 0.4s ease-out 450ms,
     transform 0.4s ease-out 450ms, visibility 0s linear 450ms;
 }
@@ -614,14 +558,6 @@ function changeMeta(v: string): { text: string; cls: string } {
     padding-right: 18px;
   }
 }
-.hw-tab--hide {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transform: translateY(calc(-50% + 10px));
-  transition: padding 0.3s ease, opacity 0.3s ease, transform 0.3s ease, visibility 0s;
-}
-
 /* ============ 浮窗面板 ============ */
 .hw-panel {
   position: fixed;
@@ -743,60 +679,19 @@ function changeMeta(v: string): { text: string; cls: string } {
 
 /* ============ Tabs ============ */
 .hw-tabs-wrap {
-  position: relative;
   flex: none;
 }
 .hw-tabs {
-  padding: 0 10px;
+  /* 左侧内边距收窄 + 标签内边距收窄，使整体标签排布左移：
+     第 5 个标签「小说」被面板右缘硬裁剪时，「小」字完整露出并带出「说」字边缘，
+     直观提示后方还有更多榜单 */
+  padding: 0 0 0 8px;
   border-bottom: 1px solid var(--line);
-}
-/* 边缘渐隐提示层 */
-.hw-tab-fade {
-  position: absolute;
-  top: 0;
-  bottom: 1px; /* 避开 tabs 下边框线 */
-  width: 46px;
-  display: flex;
-  align-items: center;
-}
-.hw-tab-fade--left {
-  left: 0;
-  background: linear-gradient(270deg, transparent 0%, var(--card) 55%);
-  pointer-events: none;
-}
-.hw-tab-fade--right {
-  right: 0;
-  justify-content: flex-end;
-  padding: 0 6px 0 0;
-  background: linear-gradient(90deg, transparent 0%, var(--card) 55%);
-  border: none;
-  color: var(--red);
-  cursor: pointer;
-}
-@media (hover: hover) and (pointer: fine) {
-  .hw-tab-fade--right:hover {
-    color: var(--red-deep);
-  }
-}
-/* 箭头轻柔左右摆动，吸引用户发现可滚动的榜单 */
-.hw-tab-fade--right :deep(svg) {
-  animation: hw-tab-nudge 1.5s ease-in-out infinite;
-}
-@keyframes hw-tab-nudge {
-  0%,
-  100% {
-    transform: translateX(-1px);
-    opacity: 0.65;
-  }
-  50% {
-    transform: translateX(3px);
-    opacity: 1;
-  }
 }
 .hw-tabs :deep(.n-tabs-tab) {
   font-size: 0.84rem;
   font-weight: 700;
-  padding: 8px 11px;
+  padding: 8px 10px;
 }
 .hw-tabs :deep(.n-tabs-bar) {
   height: 2.5px;
@@ -1100,9 +995,6 @@ a.hw-row:focus-visible {
     writing-mode: horizontal-tb;
     letter-spacing: 0.14em;
     font-size: 0.8rem;
-  }
-  .hw-tab--hide {
-    transform: translateY(14px);
   }
   .hw-panel {
     top: auto;

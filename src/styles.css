@@ -872,11 +872,23 @@ footer .wrap {
 }
 
 /* ============ 右侧浮窗互斥避让 ============
-   百度热搜浮窗打开时（html.hotnews-open）隐藏「历史上的今天」侧签；
-   「历史上的今天」浮窗打开时（:has(.ht-panel)）隐藏百度热搜侧签 */
+   任一浮窗打开时（html.hotnews-open / html.history-open），两个侧签共享
+   同一过渡同步隐藏；类在面板离场动画结束后才移除，两侧签再按组件内
+   统一的 450ms 延迟过渡同步回归，避免一前一后 */
 html.hotnews-open .ht-tab,
-html:has(.ht-panel) .hw-tab {
+html.hotnews-open .hw-tab,
+html.history-open .ht-tab,
+html.history-open .hw-tab {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+  transform: translateY(calc(-50% + 10px));
+  transition: padding 0.3s ease, opacity 0.3s ease, transform 0.3s ease, visibility 0s;
+}
+@media (max-width: 600px) {
+  /* 移动端热搜入口为左下胶囊（基准 transform 为 none），隐藏位移量不同 */
+  html.hotnews-open .hw-tab,
+  html.history-open .hw-tab {
+    transform: translateY(14px);
+  }
 }

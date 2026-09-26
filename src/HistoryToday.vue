@@ -80,6 +80,11 @@ function openPanel() {
   if (!loaded && !loading.value) load()
 }
 
+// 面板离场动画结束后才摘除全局互斥标记：两个侧签同时开始回归过渡
+function onAfterLeave() {
+  if (!open.value) document.documentElement.classList.remove('history-open')
+}
+
 const panelRef = ref<HTMLElement | null>(null)
 // 滚轮锁定在浮窗内：非列表区域一律拦截；列表滚到边界时也拦截，防止链动到整页
 function onPanelWheel(e: WheelEvent) {
@@ -100,8 +105,12 @@ watch(open, async (v) => {
     document.removeEventListener('pointerdown', onDocPointerDown)
     // 关闭后解除背景滚动锁定（桌面端本来就不锁，置空无副作用）
     document.body.style.overflow = ''
+    // 注意：history-open 不在此处摘除，需等面板离场动画结束（onAfterLeave），
+    // 否则「历史上的今天」侧签会比百度热搜提前恢复
     return
   }
+  // 打开期间隐藏两个侧签（全局 CSS 依据此标记处理，与百度热搜同步隐藏）
+  document.documentElement.classList.add('history-open')
   // 移动端底部抽屉：锁定背景页面滚动，避免列表滚到边界时链动整页
   if (isNarrow()) document.body.style.overflow = 'hidden'
   await nextTick()
@@ -163,6 +172,7 @@ function onDocPointerDown(e: PointerEvent) {
 }
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocPointerDown)
+  document.documentElement.classList.remove('history-open')
   document.body.style.overflow = ''
 })
 
@@ -175,8 +185,8 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
 </script>
 
 <template>
-  <!-- 收起态：右侧竖排签 -->
-  <button class="ht-tab" :class="{ 'ht-tab--hide': open }" @click="openPanel" aria-label="查看历史上的今天">
+  <!-- 收起态：右侧竖排签（显隐由全局 html.history-open / html.hotnews-open 统一控制，保证两侧签同步） -->
+  <button class="ht-tab" @click="openPanel" aria-label="查看历史上的今天">
     历史上的今天
   </button>
 
@@ -186,7 +196,7 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
   </Transition>
 
   <!-- 展开态：桌面为右侧浮窗，移动端（≤600px）为底部抽屉，头部区域可下拉关闭 -->
-  <Transition name="ht">
+  <Transition name="ht" @after-leave="onAfterLeave">
     <div
       v-if="open"
       ref="panelRef"
@@ -280,7 +290,8 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
   border-radius: 12px 0 0 12px;
   box-shadow: var(--shadow);
   cursor: pointer;
-  /* 回归动画延迟 450ms：等面板离场动画播完后再淡入上移归位，避免突兀闪现 */
+  /* 回归动画延迟 450ms：等面板离场动画播完后再淡入上移归位，避免突兀闪现；
+     隐藏态样式由全局 styles.css 的互斥避让规则统一提供（与 .hw-tab 同步） */
   transition: padding 0.3s ease, opacity 0.4s ease-out 450ms,
     transform 0.4s ease-out 450ms, visibility 0s linear 450ms;
 }
@@ -288,14 +299,6 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
   .ht-tab:hover {
     padding-right: 18px;
   }
-}
-.ht-tab--hide {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  /* 隐藏时下沉 10px，回归时上移归位形成入场动画；隐藏立即生效，与面板入场同步 */
-  transform: translateY(calc(-50% + 10px));
-  transition: padding 0.3s ease, opacity 0.3s ease, transform 0.3s ease, visibility 0s;
 }
 
 /* ============ 浮窗面板 ============ */
