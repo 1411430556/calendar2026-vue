@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { beijingNow } from './utils/beijing'
+import { NSkeleton } from 'naive-ui'
+import { beijingNow } from '../utils/beijing'
 
 interface HistoryItem {
   ranking: number
@@ -220,12 +221,12 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
 
       <div class="ht-list">
         <template v-if="loading">
-          <div v-for="i in 6" :key="i" class="ht-skeleton">
-            <span class="ht-skel ht-skel--year"></span>
-            <span class="ht-skel ht-skel--dot"></span>
+          <div v-for="i in 8" :key="i" class="ht-skeleton">
+            <n-skeleton class="ht-skel-year" text />
+            <n-skeleton class="ht-skel-dot" circle />
             <span class="ht-skel-wrap">
-              <span class="ht-skel ht-skel--title"></span>
-              <span class="ht-skel ht-skel--desc"></span>
+              <n-skeleton text style="width: 82%" />
+              <n-skeleton text style="width: 95%" />
             </span>
           </div>
         </template>
@@ -547,46 +548,26 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
   overflow: hidden;
 }
 
-/* ============ 骨架屏 / 错误 / 空态 ============ */
+/* ============ 骨架屏（naive-ui NSkeleton） / 错误 / 空态 ============ */
 .ht-skeleton {
   display: grid;
   grid-template-columns: 56px 20px 1fr;
   padding-bottom: 18px;
 }
-.ht-skel {
-  display: block;
-  border-radius: 6px;
-  background: linear-gradient(90deg, var(--gold-tint) 25%, var(--paper-2) 50%, var(--gold-tint) 75%);
-  background-size: 200% 100%;
-  animation: ht-shimmer 1.4s ease infinite;
-}
-@keyframes ht-shimmer {
-  to {
-    background-position: -200% 0;
-  }
-}
-.ht-skel--year {
+.ht-skel-year {
+  width: 40px;
   height: 12px;
   margin: 5px 10px 0 auto;
-  width: 40px;
 }
-.ht-skel--dot {
+.ht-skel-dot {
   width: 10px;
   height: 10px;
-  border-radius: 50%;
   margin: 8px auto 0;
 }
-.ht-skel--title {
-  height: 14px;
-  width: 82%;
-}
-.ht-skel--desc {
-  height: 11px;
-  width: 95%;
-  margin-top: 8px;
-}
 .ht-skel-wrap {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .ht-error,

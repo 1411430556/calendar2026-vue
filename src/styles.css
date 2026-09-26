@@ -24,9 +24,9 @@
   --teal-tint: #dceae4;
   --line: #e0d6c4;
   --line-2: #cdbfa8;
-  --hero-1: #151c19;
-  --hero-2: #0d1411;
-  --hero-ink: #ede6d6;
+  --hero-1: #73261f;
+  --hero-2: #5c1a15;
+  --hero-ink: #fff0d6;
   --shadow: 0 1px 2px rgba(60, 45, 25, 0.06), 0 8px 26px -12px rgba(60, 45, 25, 0.28);
   --shadow-lg: 0 2px 5px rgba(60, 45, 25, 0.06), 0 16px 34px -20px rgba(10, 18, 15, 0.55);
   --r: 14px;
@@ -88,24 +88,11 @@ h3,
   position: relative;
   color: var(--hero-ink);
   overflow: hidden;
-  background: radial-gradient(120% 130% at 82% -10%, #24403a 0%, #16241f 42%, var(--hero-2) 100%);
+  /* 喜庆新年红（柔和绛红）：低饱和枣红渐变，红而不艳 */
+  background: radial-gradient(120% 130% at 82% -10%, #8a3a30 0%, var(--hero-1) 42%, var(--hero-2) 100%);
   /* 顶部叠加安全区：添加到主屏幕全屏运行时避让状态栏 */
   padding: calc(clamp(34px, 5vw, 66px) + env(safe-area-inset-top, 0px)) 0 clamp(40px, 6vw, 74px);
   border-bottom: 3px solid var(--gold);
-}
-
-.hero::before {
-  content: "馬";
-  position: absolute;
-  right: 0vw;
-  top: 1vh;
-  line-height: 1;
-  font-family: '阿里妈妈东方大楷 Regular', serif;
-  font-size: min(46vh, 46vw);
-  color: #fff;
-  opacity: 0.035;
-  pointer-events: none;
-  user-select: none;
 }
 
 .hero::after {
@@ -185,13 +172,13 @@ h3,
   font-weight: 700;
   letter-spacing: 0.04em;
   margin-top: 4px;
-  color: #f6eedc;
+  color: #fff4de;
 }
 
 .hero .sub {
   margin-top: 14px;
   max-width: 34ch;
-  color: #cdc4b2;
+  color: #f0dfc0;
   font-weight: 300;
   font-size: clamp(0.92rem, 1.4vw, 1.02rem);
 }

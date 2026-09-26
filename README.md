@@ -77,7 +77,7 @@
 | 类型检查 | `vue-tsc` |
 | 包管理 | pnpm |
 
-> 无路由、无状态库；naive-ui 仅按需引入实际用到的组件，未全量注册。鼠标粒子特效为零依赖手写 Canvas（[`src/cursorEffect.ts`](src/cursorEffect.ts)）。
+> 无路由、无状态库；naive-ui 仅按需引入实际用到的组件，未全量注册。鼠标粒子特效为零依赖手写 Canvas（[`src/utils/cursorEffect.ts`](src/utils/cursorEffect.ts)）。
 
 ## 快速开始
 
@@ -132,10 +132,16 @@ calendar2026-vue/
 └── src/
     ├── main.ts                 # 应用入口（注册 Service Worker）
     ├── App.vue                 # 页面骨架 + 滚动联动 + naive-ui 主题
-    ├── DailyQuote.vue          # 每日一言（诗词接口 + 兜底文案）
-    ├── HistoryToday.vue        # 历史上的今天（浮窗）
-    ├── cursorEffect.ts         # 鼠标粒子特效（零依赖 Canvas）
     ├── styles.css              # 全部样式（CSS 变量主题 + 字号体系）
+    ├── vite-env.d.ts           # Vite 客户端类型引用
+    ├── components/
+    │   ├── DailyQuote.vue      # 每日一言（诗词接口 + 兜底文案）
+    │   ├── HistoryToday.vue    # 历史上的今天（浮窗）
+    │   └── HotNews.vue         # 百度热搜新闻榜（浮窗）
+    ├── utils/
+    │   ├── beijing.ts          # 北京时间（UTC+8）换算
+    │   ├── beijing.test.ts     # 北京时间换算单元测试
+    │   └── cursorEffect.ts     # 鼠标粒子特效（零依赖 Canvas）
     ├── assets/
     │   └── fonts/              # 阿里妈妈东方大楷 woff2 + 授权文件
     └── data/

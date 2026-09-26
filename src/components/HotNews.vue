@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { NIcon, NTabPane, NTabs } from 'naive-ui'
+import { NIcon, NSkeleton, NTabPane, NTabs } from 'naive-ui'
 import { Close, Refresh } from '@vicons/ionicons5'
 
 // ============ 类型定义 ============
@@ -394,7 +394,7 @@ function changeMeta(v: string): { text: string; cls: string } {
 </script>
 
 <template>
-  <!-- 收起态：桌面为右侧竖排签（位于「历史上的今天」下方），移动端为左下角胶囊按钮。
+  <!-- 收起态：桌面与移动端均为右侧竖排签（位于「历史上的今天」下方）。
        显隐由全局 html.hotnews-open / html.history-open 统一控制，保证两侧签同步 -->
   <button class="hw-tab" aria-label="查看百度热搜" @click="openPanel">
     <span class="hw-tab-text">百度热搜</span>
@@ -450,15 +450,15 @@ function changeMeta(v: string): { text: string; cls: string } {
 
       <div class="hw-list">
         <Transition name="hw-swap" mode="out-in">
-          <!-- 骨架屏 -->
+          <!-- 骨架屏：n-skeleton 实现；行数超满 + 容器溢出隐藏，保证铺满整个列表区 -->
           <div v-if="loading" :key="`loading-${activeTab}`" class="hw-skeletons">
-            <div v-for="i in 7" :key="i" class="hw-skel-row">
-              <span class="hw-skel hw-skel--rank"></span>
+            <div v-for="i in 12" :key="i" class="hw-skel-row">
+              <n-skeleton class="hw-skel-rank" :sharp="false" />
               <span class="hw-skel-wrap">
-                <span class="hw-skel hw-skel--word"></span>
-                <span class="hw-skel hw-skel--desc"></span>
+                <n-skeleton text style="width: 72%" />
+                <n-skeleton text style="width: 92%" />
               </span>
-              <span class="hw-skel hw-skel--score"></span>
+              <n-skeleton class="hw-skel-score" :sharp="false" />
             </div>
           </div>
 
@@ -855,7 +855,12 @@ function changeMeta(v: string): { text: string; cls: string } {
   opacity: 0;
 }
 
-/* ============ 骨架屏 ============ */
+/* ============ 骨架屏（naive-ui NSkeleton） ============ */
+/* 行数给足 12 行（超出列表区高度），容器铺满并裁掉溢出部分，任何面板高度下都铺满 */
+.hw-skeletons {
+  height: 100%;
+  overflow: hidden;
+}
 .hw-skel-row {
   display: grid;
   grid-template-columns: 26px 1fr auto;
@@ -863,38 +868,21 @@ function changeMeta(v: string): { text: string; cls: string } {
   align-items: center;
   padding: 8px;
 }
-.hw-skel {
-  display: block;
-  border-radius: 6px;
-  background: linear-gradient(90deg, var(--gold-tint) 25%, var(--paper-2) 50%, var(--gold-tint) 75%);
-  background-size: 200% 100%;
-  animation: hw-shimmer 1.4s ease infinite;
-}
-@keyframes hw-shimmer {
-  to {
-    background-position: -200% 0;
-  }
-}
-.hw-skel--rank {
+.hw-skel-rank {
   width: 24px;
   height: 24px;
   border-radius: 7px;
 }
 .hw-skel-wrap {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
 }
-.hw-skel--word {
-  height: 13px;
-  width: 72%;
-}
-.hw-skel--desc {
-  height: 10px;
-  width: 92%;
-  margin-top: 7px;
-}
-.hw-skel--score {
+.hw-skel-score {
   width: 38px;
   height: 11px;
+  border-radius: 6px;
 }
 
 /* ============ 错误态 ============ */
@@ -975,26 +963,10 @@ a.hw-row:focus-visible {
   opacity: 0;
 }
 
-/* ============ 移动端（≤600px）：竖排签 → 左下胶囊，浮窗 → 底部抽屉 ============ */
+/* ============ 移动端（≤600px）：入口保持右侧竖排签（与「历史上的今天」一致），浮窗 → 底部抽屉 ============ */
 @media (max-width: 600px) {
   .hw-mask {
     display: block;
-  }
-  .hw-tab {
-    top: auto;
-    right: auto;
-    left: max(14px, env(safe-area-inset-left, 0px));
-    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-    transform: none;
-    padding: 9px 17px;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 999px;
-    box-shadow: var(--shadow);
-  }
-  .hw-tab-text {
-    writing-mode: horizontal-tb;
-    letter-spacing: 0.14em;
-    font-size: 0.8rem;
   }
   .hw-panel {
     top: auto;

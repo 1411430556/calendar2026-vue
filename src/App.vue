@@ -15,10 +15,10 @@ import {
 } from 'naive-ui'
 import { ArrowUp } from '@vicons/ionicons5'
 import { CAL, HOLIDAYS, type DayInfo } from './data/calendar2026'
-import { initCursorEffect } from './cursorEffect'
-import HistoryToday from './HistoryToday.vue'
-import DailyQuote from './DailyQuote.vue'
-import HotNews from './HotNews.vue'
+import { initCursorEffect } from './utils/cursorEffect'
+import HistoryToday from './components/HistoryToday.vue'
+import DailyQuote from './components/DailyQuote.vue'
+import HotNews from './components/HotNews.vue'
 
 // ============ 中国风主题令牌（对齐 naive-ui） ============
 const themeOverrides = {

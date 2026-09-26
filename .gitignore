@@ -32,3 +32,6 @@ Thumbs.db
 # 项目使用 pnpm，忽略其它包管理器的锁文件
 package-lock.json
 yarn.lock
+
+# Trae IDE 本地 HTML 分享产物
+.trae-html-share-packages/
