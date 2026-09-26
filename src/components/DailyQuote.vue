@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { buildApiUrl } from '../utils/api'
 
 interface Quote {
   content: string
@@ -8,8 +9,7 @@ interface Quote {
 
 // 每次一言（shwgij 随机诗词接口）：每次请求随机返回，刷新即换
 const API_URL = 'https://api.shwgij.com/api/randtext/get'
-// 密钥来自 .env.local（不入库），VITE_ 前缀变量会打包进产物；type=4 精选诗词、m=0
-const API_KEY = import.meta.env.VITE_HISTORY_API_KEY ?? ''
+// type=4 精选诗词、m=0；密钥由公共请求层统一注入
 // 请求失败时展示的预设兜底文案
 const FALLBACK: Quote = { content: '路漫漫其修远兮，吾将上下而求索', from: '屈原 · 离骚' }
 
@@ -28,7 +28,7 @@ function parsePayload(json: { data?: { text?: string } }): Quote | null {
 async function load() {
   try {
     // 8 秒超时：弱网挂起时及时回退预设文案，避免骨架屏永久停留
-    const res = await fetch(`${API_URL}?key=${encodeURIComponent(API_KEY)}&type=4&m=0`, {
+    const res = await fetch(buildApiUrl(API_URL, { type: '4', m: '0' }), {
       signal: AbortSignal.timeout(8000),
     })
     if (!res.ok) throw new Error(String(res.status))

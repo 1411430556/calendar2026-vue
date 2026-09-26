@@ -16,71 +16,11 @@ import {
 import { ArrowUp } from '@vicons/ionicons5'
 import { CAL, HOLIDAYS, type DayInfo } from './data/calendar2026'
 import { initCursorEffect } from './utils/cursorEffect'
+import { pad2 } from './utils/format'
+import { themeOverrides } from './theme'
 import HistoryToday from './components/HistoryToday.vue'
 import DailyQuote from './components/DailyQuote.vue'
 import HotNews from './components/HotNews.vue'
-
-// ============ 中国风主题令牌（对齐 naive-ui） ============
-const themeOverrides = {
-  common: {
-    primaryColor: '#BE3A2B',
-    primaryColorHover: '#D15444',
-    primaryColorPressed: '#A02E20',
-    primaryColorSuppl: '#BE3A2B',
-    infoColor: '#2F5D55',
-    infoColorHover: '#3A7369',
-    warningColor: '#B98F3E',
-    warningColorHover: '#CBA456',
-    bodyColor: '#F3EDE0',
-    cardColor: '#FFFCF5',
-    modalColor: '#FFFCF5',
-    popoverColor: '#FFFCF5',
-    textColorBase: '#241F19',
-    textColor1: '#241F19',
-    textColor2: '#4A4238',
-    textColor3: '#7A6F60',
-    textColorDisabled: '#B3A998',
-    borderColor: '#E0D6C4',
-    dividerColor: '#E0D6C4',
-    actionColor: '#FBF7EE',
-    borderRadius: '14px',
-    borderRadiusSmall: '9px',
-    fontFamily: `'阿里妈妈东方大楷 Regular', system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif`,
-    // naive-ui 组件字号是独立 px 体系，不随 html 的 rem 基准缩放，需按 112.5% 同步提升（默认 14/12/15/16）
-    fontSize: '16px',
-    fontSizeMedium: '16px',
-    fontSizeSmall: '16px',
-    fontSizeTiny: '13.5px',
-    fontSizeLarge: '17px',
-    fontSizeHuge: '18px',
-    fontWeight: '400',
-    fontWeightStrong: '700',
-    lineHeight: '1.6',
-  },
-  Card: {
-    color: '#FFFCF5',
-    colorEmbedded: '#FBF7EE',
-    borderColor: '#E0D6C4',
-    borderRadius: '14px',
-    paddingMedium: '20px 20px 18px',
-  },
-  Tag: {
-    borderRadius: '8px',
-  },
-  Button: {
-    borderRadiusMedium: '999px',
-    colorPrimary: '#BE3A2B',
-    colorPrimaryHover: '#D15444',
-    colorPrimaryPressed: '#A02E20',
-  },
-  Divider: {
-    color: '#E0D6C4',
-  },
-  Statistic: {
-    labelTextColor: '#7A6F60',
-    valueTextColor: '#241F19',
-  },
-}
 
 const WNAMES = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']
 const MNAMES = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
@@ -89,7 +29,6 @@ const MONTH_HOL: Record<number, string> = { 1: '元旦', 2: '春节', 4: '清明
 const WDOW = '日一二三四五六'.split('')
 
 const DAY_MAP = new Map<string, DayInfo>(CAL.map((d) => [d.date, d]))
-const pad = (n: number) => String(n).padStart(2, '0')
 
 // 年份从数据首条推导，干支 / 生肖 / 中文数字年均由年份派生，避免硬编码
 const YEAR = Number(CAL[0].date.slice(0, 4))
@@ -117,7 +56,7 @@ interface MonthBlock {
 const todayKey = (() => {
   const now = new Date()
   if (now.getFullYear() === YEAR) {
-    const k = `${YEAR}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+    const k = `${YEAR}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`
     if (DAY_MAP.has(k)) return k
   }
   return ''

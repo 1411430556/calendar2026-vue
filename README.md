@@ -131,17 +131,28 @@ calendar2026-vue/
 │   └── *.png / favicon.svg     # 应用图标
 └── src/
     ├── main.ts                 # 应用入口（注册 Service Worker）
-    ├── App.vue                 # 页面骨架 + 滚动联动 + naive-ui 主题
+    ├── App.vue                 # 页面骨架 + 滚动联动
+    ├── theme.ts                # naive-ui 主题覆盖（themeOverrides）
     ├── styles.css              # 全部样式（CSS 变量主题 + 字号体系）
     ├── vite-env.d.ts           # Vite 客户端类型引用
     ├── components/
     │   ├── DailyQuote.vue      # 每日一言（诗词接口 + 兜底文案）
     │   ├── HistoryToday.vue    # 历史上的今天（浮窗）
     │   └── HotNews.vue         # 百度热搜新闻榜（浮窗）
+    ├── composables/
+    │   ├── useSidePanel.ts     # 浮窗公共开合机制（互斥避让 / 外部点击关闭 / 滚轮锁定 / 下拉手势）
+    │   ├── useHotNews.ts       # 热搜数据状态机（缓存 / 限速 / 重试 / 预取 / 定时刷新）
+    │   └── useHotNews.test.ts  # 服务端时间戳清洗单元测试
     ├── utils/
+    │   ├── api.ts              # 公共请求层（密钥注入 / 超时 / 解包 / 限速器）
+    │   ├── api.test.ts         # 请求层单元测试
     │   ├── beijing.ts          # 北京时间（UTC+8）换算
     │   ├── beijing.test.ts     # 北京时间换算单元测试
-    │   └── cursorEffect.ts     # 鼠标粒子特效（零依赖 Canvas）
+    │   ├── cursorEffect.ts     # 鼠标粒子特效（零依赖 Canvas）
+    │   ├── format.ts           # 展示格式化（补零 / 热搜数 / 涨跌标记 / 年份）
+    │   ├── format.test.ts      # 格式化单元测试
+    │   ├── storage.ts          # localStorage 读写封装（脏 JSON 容错）
+    │   └── storage.test.ts     # 存储封装单元测试
     ├── assets/
     │   └── fonts/              # 阿里妈妈东方大楷 woff2 + 授权文件
     └── data/

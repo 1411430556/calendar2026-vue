@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { ref } from 'vue'
 import { NSkeleton } from 'naive-ui'
 import { beijingNow } from '../utils/beijing'
+import { buildApiUrl, fetchJson, toErrorMessage, unwrapData, type ApiEnvelope } from '../utils/api'
+import { firstOf, pad2, yearLabel } from '../utils/format'
+import { readStorageJSON, writeStorageJSON } from '../utils/storage'
+import { useSidePanel } from '../composables/useSidePanel'
 
 interface HistoryItem {
   ranking: number
@@ -13,8 +17,6 @@ interface HistoryItem {
 }
 
 const API_URL = 'https://api.shwgij.com/api/today/onthisday'
-// 密钥来自 .env.local（不入库），VITE_ 前缀变量会打包进产物
-const API_KEY = import.meta.env.VITE_HISTORY_API_KEY ?? ''
 
 const TYPE_MAP: Record<string, { seal: string; color: string; tint: string }> = {
   birth: { seal: '诞', color: 'var(--teal)', tint: 'var(--teal-tint)' },
@@ -24,14 +26,12 @@ const TYPE_MAP: Record<string, { seal: string; color: string; tint: string }> = 
 }
 const typeOf = (t: string) => TYPE_MAP[t] ?? TYPE_MAP.event
 
-const pad = (n: number) => String(n).padStart(2, '0')
 // API 按北京时间返回"今天"，统一换算成 UTC+8 再取日期，避免访客时区导致缓存键与内容错位
 const bj = beijingNow()
 const dateLabel = `${bj.getUTCMonth() + 1}月${bj.getUTCDate()}日`
 const weekLabel = `星期${'日一二三四五六'[bj.getUTCDay()]}`
-const cacheKey = `historyToday:${bj.getUTCFullYear()}-${pad(bj.getUTCMonth() + 1)}-${pad(bj.getUTCDate())}`
+const cacheKey = `historyToday:${bj.getUTCFullYear()}-${pad2(bj.getUTCMonth() + 1)}-${pad2(bj.getUTCDate())}`
 
-const open = ref(false)
 const loading = ref(false)
 const error = ref('')
 const items = ref<HistoryItem[]>([])
@@ -39,147 +39,39 @@ let loaded = false
 
 async function load(force = false) {
   if (!force) {
-    const cached = localStorage.getItem(cacheKey)
+    // 跨会话本地缓存：命中则直接渲染（脏 JSON 由存储层自动剔除）
+    const cached = readStorageJSON<HistoryItem[]>(cacheKey)
     if (cached) {
-      try {
-        items.value = JSON.parse(cached)
-        loaded = true
-        return
-      } catch {
-        localStorage.removeItem(cacheKey)
-      }
+      items.value = cached
+      loaded = true
+      return
     }
   }
   loading.value = true
   error.value = ''
   try {
     // 10 秒超时：弱网挂起时进入错误态并展示"重新加载"，而非永久骨架屏
-    const res = await fetch(`${API_URL}?key=${encodeURIComponent(API_KEY)}`, {
-      signal: AbortSignal.timeout(10000),
-    })
-    const json = await res.json()
-    if (json.code !== 200 && json.code !== 201) throw new Error(json.msg || '接口返回异常')
-    items.value = json.data ?? []
-    localStorage.setItem(cacheKey, JSON.stringify(items.value))
+    const json = await fetchJson<ApiEnvelope>(buildApiUrl(API_URL), 10_000)
+    items.value = unwrapData<HistoryItem[]>(json) ?? []
+    writeStorageJSON(cacheKey, items.value)
     loaded = true
   } catch (e) {
-    error.value =
-      e instanceof DOMException && e.name === 'AbortError'
-        ? '请求超时，网络可能不稳定，请稍后重试'
-        : e instanceof Error
-          ? e.message
-          : '加载失败，请稍后重试'
+    error.value = toErrorMessage(e)
   } finally {
     loading.value = false
   }
 }
 
-function openPanel() {
-  open.value = true
-  if (!loaded && !loading.value) load()
-}
-
-// 面板离场动画结束后才摘除全局互斥标记：两个侧签同时开始回归过渡
-function onAfterLeave() {
-  if (!open.value) document.documentElement.classList.remove('history-open')
-}
-
-const panelRef = ref<HTMLElement | null>(null)
-// 滚轮锁定在浮窗内：非列表区域一律拦截；列表滚到边界时也拦截，防止链动到整页
-function onPanelWheel(e: WheelEvent) {
-  const list = e.target instanceof Element ? e.target.closest('.ht-list') : null
-  if (!list) {
-    e.preventDefault()
-    return
-  }
-  const atTop = list.scrollTop <= 0
-  const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 1
-  if ((e.deltaY <= 0 && atTop) || (e.deltaY >= 0 && atBottom)) e.preventDefault()
-}
-// 抽屉/浮窗断点，与 CSS 中 @media (max-width: 600px) 保持一致
-const isNarrow = () => window.matchMedia('(max-width: 600px)').matches
-
-watch(open, async (v) => {
-  if (!v) {
-    document.removeEventListener('pointerdown', onDocPointerDown)
-    // 关闭后解除背景滚动锁定（桌面端本来就不锁，置空无副作用）
-    document.body.style.overflow = ''
-    // 注意：history-open 不在此处摘除，需等面板离场动画结束（onAfterLeave），
-    // 否则「历史上的今天」侧签会比百度热搜提前恢复
-    return
-  }
-  // 打开期间隐藏两个侧签（全局 CSS 依据此标记处理，与百度热搜同步隐藏）
-  document.documentElement.classList.add('history-open')
-  // 移动端底部抽屉：锁定背景页面滚动，避免列表滚到边界时链动整页
-  if (isNarrow()) document.body.style.overflow = 'hidden'
-  await nextTick()
-  const panel = panelRef.value
-  if (panel) {
-    // 清掉上次下拉手势可能残留的内联变换，保证入场动画从 CSS 起点开始
-    panel.style.transform = ''
-    panel.style.transition = ''
-    panel.addEventListener('wheel', onPanelWheel, { passive: false })
-  }
-  document.addEventListener('pointerdown', onDocPointerDown)
+// 浮窗开合、互斥避让、外部点击关闭、滚轮锁定、移动端下拉手势均由公共 composable 承担
+const { open, panelRef, openPanel, onAfterLeave, drag } = useSidePanel({
+  mutexClass: 'history-open',
+  listSelector: '.ht-list',
+  onOpen: () => {
+    if (!loaded && !loading.value) void load()
+  },
 })
 
-// ============ 移动端下拉关闭手势（仅触摸头部区域时生效，不影响列表滚动） ============
-let dragging = false
-let dragStartY = 0
-
-function onDragStart(e: TouchEvent) {
-  if (!isNarrow() || !(e.target instanceof Element) || !e.target.closest('.ht-head')) return
-  dragging = true
-  dragStartY = e.touches[0].clientY
-}
-
-function onDragMove(e: TouchEvent) {
-  if (!dragging || !panelRef.value) return
-  // 只响应向下拖动；关闭 CSS 过渡使面板严格跟随手指
-  const dy = Math.max(0, e.touches[0].clientY - dragStartY)
-  panelRef.value.style.transition = 'none'
-  panelRef.value.style.transform = `translateY(${dy}px)`
-}
-
-function onDragEnd(e: TouchEvent) {
-  if (!dragging) return
-  dragging = false
-  const panel = panelRef.value
-  if (!panel) return
-  const dy = Math.max(0, e.changedTouches[0].clientY - dragStartY)
-  if (dy > 90) {
-    // 超过阈值：先定格在手位置，两帧后交还离场动画类，从当前位置继续滑到底部，避免瞬跳
-    panel.style.transition = ''
-    panel.style.transform = `translateY(${dy}px)`
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        panel.style.transform = ''
-      })
-    })
-    open.value = false
-  } else {
-    // 未超阈值：移除内联样式，由 CSS 过渡回弹归位
-    panel.style.transition = ''
-    panel.style.transform = ''
-  }
-}
-
-// 点击浮窗外部任意区域关闭（pointerdown 同时覆盖鼠标/触摸/笔；浮窗内部点击不触发）
-function onDocPointerDown(e: PointerEvent) {
-  const panel = panelRef.value
-  if (panel && e.target instanceof Node && !panel.contains(e.target)) open.value = false
-}
-onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', onDocPointerDown)
-  document.documentElement.classList.remove('history-open')
-  document.body.style.overflow = ''
-})
-
-const yearLabel = (y: string) => {
-  const n = Number(y)
-  return Number.isNaN(n) ? y : n < 0 ? `公元前${-n}年` : `${n}年`
-}
-const linkOf = (link: HistoryItem['link']) => (Array.isArray(link) ? link[0] : link) || ''
+const linkOf = (link: HistoryItem['link']) => firstOf(link)
 const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
 </script>
 
@@ -198,16 +90,16 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
   <Transition name="ht" @after-leave="onAfterLeave">
     <div
       v-if="open"
-      ref="panelRef"
+      :ref="panelRef"
       class="ht-panel"
       role="dialog"
       aria-label="历史上的今天"
-      @touchstart.passive="onDragStart"
-      @touchmove.passive="onDragMove"
-      @touchend="onDragEnd"
-      @touchcancel="onDragEnd"
+      @touchstart.passive="drag.onDragStart"
+      @touchmove.passive="drag.onDragMove"
+      @touchend="drag.onDragEnd"
+      @touchcancel="drag.onDragEnd"
     >
-      <header class="ht-head">
+      <header class="ht-head side-panel-head">
         <span class="ht-wm" aria-hidden="true">史</span>
         <div>
           <div class="ht-kicker">ON THIS DAY</div>

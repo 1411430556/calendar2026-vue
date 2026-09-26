@@ -1,364 +1,67 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { NIcon, NSkeleton, NTabPane, NTabs } from 'naive-ui'
 import { Close, Refresh } from '@vicons/ionicons5'
+import { useSidePanel } from '../composables/useSidePanel'
+import { useHotNewsData, type HotItem } from '../composables/useHotNews'
+import { changeMeta, firstOf, formatHot } from '../utils/format'
 
-// ============ 类型定义 ============
-interface HotItem {
-  ranking: number | string
-  hotScore: string
-  hotTag: string
-  hotTagImg: string | string[]
-  desc: string
-  hotChange: string
-  url: string | string[]
-  word: string
-}
-interface CacheEntry {
-  // 本地抓取时间：缓存新鲜度判定依据
-  ts: number
-  // 服务端榜单更新时间（可信时存在）：仅用于展示
-  serverTs?: number
-  list: HotItem[]
-}
-
-const API_URL = 'https://api.shwgij.com/api/news/baidu_news'
-// 与「历史上的今天」同一账号密钥，来自 .env.local（不入库）
-const API_KEY = import.meta.env.VITE_HISTORY_API_KEY ?? ''
-
-// 榜单配置：tab 参数取值依据接口文档
-const TABS = [
-  { key: 'realtime', label: '热搜' },
-  { key: 'livelihood', label: '民生' },
-  { key: 'finance', label: '财经' },
-  { key: 'phrase', label: '热梗' },
-  { key: 'novel', label: '小说' },
-  { key: 'movie', label: '电影' },
-  { key: 'teleplay', label: '电视剧' },
-  { key: 'car', label: '汽车' },
-  { key: 'game', label: '游戏' },
-] as const
-
-// 缓存时效：新鲜期内不重复请求；本地缓存超过保留期后清除
-const FRESH_MS = 10 * 60_000
-const STALE_MS = 30 * 60_000
-// 浮窗打开期间每 5 分钟静默刷新当前榜单
-const AUTO_MS = 5 * 60_000
-
-// ============ 状态 ============
-const open = ref(false)
-const activeTab = ref<string>(TABS[0].key)
-const items = ref<HotItem[]>([])
-const loading = ref(false)
-const error = ref('')
-const refreshing = ref(false)
-const lastUpdated = ref(0)
-const softError = ref('')
-
-// 内存缓存：同一标签页内切换榜单零请求
-const memCache = new Map<string, CacheEntry>()
-let autoTimer: number | undefined
-let softTimer: number | undefined
-const panelRef = ref<HTMLElement | null>(null)
-
-const currentLabel = computed(() => TABS.find((t) => t.key === activeTab.value)?.label ?? '热搜')
-const timeLabel = computed(() => {
-  if (!lastUpdated.value) return ''
-  const d = new Date(lastUpdated.value)
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${p(d.getHours())}:${p(d.getMinutes())} 更新`
+// ============ 浮窗开合（互斥避让 / 外部点击关闭 / 滚轮锁定 / 移动端背景锁） ============
+// startSession / stopSession 在下方声明：仅作为回调传入，浮窗开合时才执行
+const { open, panelRef, openPanel, closePanel, onAfterLeave } = useSidePanel({
+  mutexClass: 'hotnews-open',
+  listSelector: '.hw-list',
+  onOpen: startSession,
+  onClose: stopSession,
+  onCleanup: () => document.removeEventListener('visibilitychange', onVisibility),
 })
 
-// ============ 请求限速队列 ============
-// 接口 QPS 限制为 1 秒 1 次；实测请求间隔不足时服务端会错返"上一个榜单"内容。
-// 对策：全局串行队列保证间隔 ≥1.1s，并在响应中校验 data.typeName 是否与请求一致
-let lastReqAt = 0
-let reqChain: Promise<unknown> = Promise.resolve()
-function serialized<T>(fn: () => Promise<T>): Promise<T> {
-  const run = reqChain.then(async () => {
-    const gap = 1100 - (Date.now() - lastReqAt)
-    if (gap > 0) await new Promise((r) => setTimeout(r, gap))
-    lastReqAt = Date.now()
-    return fn()
-  })
-  reqChain = run.catch(() => {})
-  return run
-}
-async function requestRaw(tab: string) {
-  // 10 秒超时：弱网挂起时进入错误/软错误态，而非永久骨架屏
-  const res = await fetch(
-    `${API_URL}?key=${encodeURIComponent(API_KEY)}&tab=${encodeURIComponent(tab)}`,
-    { signal: AbortSignal.timeout(10000) },
-  )
-  return res.json()
-}
+// ============ 榜单数据状态机（缓存 / 限速 / 重试 / 预取 / 定时刷新） ============
+const {
+  TABS,
+  activeTab,
+  items,
+  loading,
+  error,
+  refreshing,
+  softError,
+  currentLabel,
+  timeLabel,
+  loadTab,
+  prefetchRest,
+  startAuto,
+  stopAuto,
+  onVisibility,
+} = useHotNewsData(open)
 
-// ============ 本地缓存（localStorage，跨会话 stale-while-revalidate） ============
-// v3：旧版把服务端 updateTime 当作抓取时间，游戏榜脏时间戳会导致缓存永久过期，升级版本键废弃旧结构
-const storageKey = (tab: string) => `hotNews:v3:${tab}`
-
-// 服务端 updateTime 清洗：只接受近 30 天内、且不超前（允许 5 分钟时钟偏差）的时间。
-// 实测部分榜单（如游戏）会返回 2023 年的脏时间戳，直接使用会让缓存永久过期、展示时间错误
-function resolveServerTs(updateTime: unknown): number | undefined {
-  const n = Number(updateTime)
-  if (!n) return undefined
-  const ms = n * 1000
-  const now = Date.now()
-  if (ms > now + 5 * 60_000) return undefined
-  if (ms < now - 30 * 24 * 60 * 60_000) return undefined
-  return ms
-}
-function readStorage(tab: string): CacheEntry | null {
-  try {
-    const raw = localStorage.getItem(storageKey(tab))
-    if (!raw) return null
-    const entry = JSON.parse(raw) as CacheEntry
-    if (!Array.isArray(entry.list) || Date.now() - entry.ts > STALE_MS) {
-      localStorage.removeItem(storageKey(tab))
-      return null
-    }
-    return entry
-  } catch {
-    localStorage.removeItem(storageKey(tab))
-    return null
-  }
-}
-function writeStorage(tab: string, entry: CacheEntry) {
-  try {
-    localStorage.setItem(storageKey(tab), JSON.stringify(entry))
-  } catch {
-    // 配额超限（隐私模式等）：忽略，内存缓存仍然生效
-  }
-}
-
-// ============ 数据加载 ============
-async function loadTab(tab: string, opts: { force?: boolean } = {}) {
-  const { force = false } = opts
-  if (!force) {
-    // 1. 内存缓存命中且新鲜：直接使用
-    const mem = memCache.get(tab)
-    if (mem && Date.now() - mem.ts < FRESH_MS) {
-      applyEntry(tab, mem)
-      return
-    }
-    // 2. 本地缓存：先展示，新鲜则直接返回，过期则后台静默刷新
-    const cached = readStorage(tab)
-    if (cached) {
-      applyEntry(tab, cached)
-      if (Date.now() - cached.ts < FRESH_MS) return
-      void ensureFetched(tab, true)
-      return
-    }
-  }
-  // 3. 无可用缓存或手动强制：进入显式加载态
-  loading.value = true
-  refreshing.value = true
-  error.value = ''
-  await ensureFetched(tab, false)
-}
-
-// ============ 请求去重与全量预取 ============
-// 同一榜单的请求全局复用：预取进行中用户切到该榜单时，等待同一个请求即可，不重复发起
-const inflight = new Map<string, Promise<void>>()
-function ensureFetched(tab: string, silent: boolean): Promise<void> {
-  const existing = inflight.get(tab)
-  if (existing) return existing
-  const p = fetchList(tab, silent).finally(() => inflight.delete(tab))
-  inflight.set(tab, p)
-  return p
-}
-
-// 首次打开浮窗：后台串行预取当前榜单之外的全部榜单（限速队列保证 QPS），
-// 用户后续切换任意榜单时数据已在内存缓存中，直接渲染、零等待
-async function prefetchRest(current: string) {
-  for (const t of TABS) {
-    if (t.key === current) continue
-    const mem = memCache.get(t.key)
-    if (mem && Date.now() - mem.ts < FRESH_MS) continue
-    const cached = readStorage(t.key)
-    if (cached) {
-      applyEntry(t.key, cached)
-      if (Date.now() - cached.ts < FRESH_MS) continue
-    }
-    try {
-      await ensureFetched(t.key, true)
-    } catch {
-      // 单个榜单预取失败不影响其余榜单；用户切到该榜单时会显式重试
-    }
-  }
-}
-
-function applyEntry(tab: string, entry: CacheEntry) {
-  memCache.set(tab, entry)
-  if (activeTab.value !== tab) return
-  items.value = entry.list
-  // 展示优先用服务端榜单更新时间，不可信时回退到本地抓取时间
-  lastUpdated.value = entry.serverTs ?? entry.ts
-  loading.value = false
-  error.value = ''
-}
-
-async function fetchList(tab: string, silent: boolean) {
-  if (!silent) refreshing.value = true
-  try {
-    // 最多 3 次：typeName 不符（被限流错返）时退避重试
-    let json: { code?: number; msg?: string; data?: unknown }
-    let rawData: unknown
-    let valid = false
-    for (let attempt = 0; attempt < 3; attempt++) {
-      json = await serialized(() => requestRaw(tab))
-      // 接口成功状态码实际为 201（文档示例为 200），两者都按成功处理
-      if (json.code !== 200 && json.code !== 201) throw new Error(json.msg || '接口返回异常')
-      rawData = json.data
-      // 兼容文档示例（data 为数组）与实际返回（data 为对象、列表在 content）
-      const dataObj = (rawData ?? {}) as { typeName?: string; content?: unknown }
-      if (
-        !Array.isArray(rawData) &&
-        dataObj.typeName &&
-        dataObj.typeName !== tab
-      ) {
-        await new Promise((r) => setTimeout(r, 1200))
-        continue
-      }
-      valid = true
-      break
-    }
-    if (!valid) throw new Error('服务繁忙，榜单数据暂时不可用，请稍后重试')
-    const list: HotItem[] = Array.isArray(rawData)
-      ? rawData
-      : Array.isArray((rawData as { content?: unknown })?.content)
-        ? ((rawData as { content: HotItem[] }).content)
-        : []
-    // data.updateTime 为榜单更新时间（秒级 Unix 时间戳）；
-    // 抓取时间恒取本地时间用于缓存判定，服务端时间经清洗后仅用于展示
-    const updateTime = (rawData as { updateTime?: number })?.updateTime
-    const entry: CacheEntry = { ts: Date.now(), serverTs: resolveServerTs(updateTime), list }
-    memCache.set(tab, entry)
-    writeStorage(tab, entry)
-    if (activeTab.value === tab) {
-      items.value = entry.list
-      lastUpdated.value = entry.serverTs ?? entry.ts
-      error.value = ''
-      softError.value = ''
-    }
-  } catch (e) {
-    if (activeTab.value !== tab) return
-    const msg =
-      e instanceof DOMException && e.name === 'AbortError'
-        ? '请求超时，网络可能不稳定，请稍后重试'
-        : e instanceof Error
-          ? e.message
-          : '加载失败，请稍后重试'
-    // 已有榜单数据时保留旧数据，仅在底部给出软提示；无数据才展示整页错误态
-    if (items.value.length === 0) error.value = msg
-    else {
-      softError.value = '刷新失败，将稍后自动重试'
-      window.clearTimeout(softTimer)
-      softTimer = window.setTimeout(() => (softError.value = ''), 8000)
-    }
-  } finally {
-    if (activeTab.value === tab) {
-      loading.value = false
-      refreshing.value = false
-    }
-  }
-}
-
-// 切换榜单：加载数据
-watch(activeTab, (tab) => {
-  if (open.value) void loadTab(tab)
-})
-
-// ============ 浮窗开关 ============
-function openPanel() {
-  open.value = true
+function startSession() {
   void loadTab(activeTab.value)
   // 后台预取其余全部榜单，预取完成后切换任何标签都是即时渲染
   void prefetchRest(activeTab.value)
-}
-function closePanel() {
-  open.value = false
-}
-
-// 面板离场动画结束后才摘除全局互斥标记：两个侧签同时开始回归过渡
-function onAfterLeave() {
-  if (!open.value) document.documentElement.classList.remove('hotnews-open')
-}
-
-// ============ 定时刷新（页面隐藏时暂停，可见时按需恢复） ============
-function startAuto() {
-  stopAuto()
-  autoTimer = window.setInterval(() => {
-    if (document.hidden) return
-    void ensureFetched(activeTab.value, true)
-  }, AUTO_MS)
-}
-function stopAuto() {
-  if (autoTimer !== undefined) {
-    window.clearInterval(autoTimer)
-    autoTimer = undefined
-  }
-}
-function onVisibility() {
-  if (!open.value) return
-  if (document.hidden) {
-    stopAuto()
-    return
-  }
-  const mem = memCache.get(activeTab.value)
-  if (!mem || Date.now() - mem.ts >= FRESH_MS) void ensureFetched(activeTab.value, true)
-  startAuto()
-}
-
-// ============ 点击外部关闭 ============
-function onDocPointerDown(e: PointerEvent) {
-  if (panelRef.value && e.target instanceof Node && !panelRef.value.contains(e.target)) closePanel()
-}
-
-// 滚轮锁定在浮窗内：列表滚到边界时拦截，防止链动整页
-function onPanelWheel(e: WheelEvent) {
-  const list = e.target instanceof Element ? e.target.closest('.hw-list') : null
-  if (!list) {
-    e.preventDefault()
-    return
-  }
-  const atTop = list.scrollTop <= 0
-  const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 1
-  if ((e.deltaY <= 0 && atTop) || (e.deltaY >= 0 && atBottom)) e.preventDefault()
-}
-const isNarrow = () => window.matchMedia('(max-width: 600px)').matches
-
-watch(open, async (v) => {
-  if (!v) {
-    document.removeEventListener('pointerdown', onDocPointerDown)
-    document.removeEventListener('visibilitychange', onVisibility)
-    // 注意：hotnews-open 不在此处摘除，需等面板离场动画结束（onAfterLeave），
-    // 否则本侧签会比「历史上的今天」提前恢复，两者回归不同步
-    document.body.style.overflow = ''
-    stopAuto()
-    return
-  }
-  // 打开期间隐藏两个侧签（全局 CSS 依据此标记处理，与「历史上的今天」同步隐藏）
-  document.documentElement.classList.add('hotnews-open')
-  if (isNarrow()) document.body.style.overflow = 'hidden'
-  await nextTick()
-  panelRef.value?.addEventListener('wheel', onPanelWheel, { passive: false })
-  document.addEventListener('pointerdown', onDocPointerDown)
   document.addEventListener('visibilitychange', onVisibility)
   startAuto()
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', onDocPointerDown)
+}
+function stopSession() {
   document.removeEventListener('visibilitychange', onVisibility)
-  document.documentElement.classList.remove('hotnews-open')
-  document.body.style.overflow = ''
   stopAuto()
-  window.clearTimeout(softTimer)
+}
+
+// ============ 切换榜单时列表回到顶部 ============
+// 各榜单共用同一个 .hw-list 滚动容器，切榜只替换内部列表，滚动位置不会自动复位。
+// 在旧榜单离场动画结束（@after-leave）、新内容尚未插入的间隙归零，
+// 避免淡出中的旧内容出现可见的位置跳变。仅标签切换置位，手动刷新保持原有滚动位置
+const listEl = ref<HTMLElement | null>(null)
+let pendingScrollReset = false
+watch(activeTab, () => {
+  pendingScrollReset = true
 })
+function onSwapAfterLeave() {
+  if (!pendingScrollReset) return
+  pendingScrollReset = false
+  listEl.value?.scrollTo(0, 0)
+}
 
 // ============ 展示辅助 ============
-const firstOf = (v: string | string[]) => (Array.isArray(v) ? v[0] : v) || ''
 const itemLink = (it: HotItem) => firstOf(it.url)
 const tagImgOf = (v: string | string[]) => firstOf(v)
 
@@ -372,25 +75,6 @@ function rankClass(it: HotItem) {
   return ''
 }
 const rankLabel = (it: HotItem) => (isTop(it) ? '顶' : String(it.ranking))
-
-// 热度格式化：4960920 → 496.1万
-function formatHot(v: string) {
-  const n = Number(v)
-  if (!n) return ''
-  const trim = (x: number) => String(x).replace(/\.0$/, '')
-  if (n >= 1e8) return `${trim(Number((n / 1e8).toFixed(1)))}亿`
-  if (n >= 1e4) return `${trim(Number((n / 1e4).toFixed(1)))}万`
-  return String(n)
-}
-
-// 排名升降：接口可能出现 up/down/same/new，做容错映射
-function changeMeta(v: string): { text: string; cls: string } {
-  const s = String(v ?? '').toLowerCase()
-  if (s === 'up' || s === 'rise') return { text: '↑', cls: 'hw-change--up' }
-  if (s === 'down' || s === 'fall') return { text: '↓', cls: 'hw-change--down' }
-  if (s === 'new') return { text: '新', cls: 'hw-change--new' }
-  return { text: '', cls: '' }
-}
 </script>
 
 <template>
@@ -407,7 +91,7 @@ function changeMeta(v: string): { text: string; cls: string } {
 
   <!-- 展开态：桌面为右侧浮窗，移动端（≤600px）为底部抽屉 -->
   <Transition name="hw" @after-leave="onAfterLeave">
-    <div v-if="open" ref="panelRef" class="hw-panel" role="dialog" aria-label="百度热搜新闻榜">
+    <div v-if="open" :ref="panelRef" class="hw-panel" role="dialog" aria-label="百度热搜新闻榜">
       <header class="hw-head">
         <div class="hw-head-info">
           <div class="hw-kicker">BAIDU HOT SEARCH</div>
@@ -448,8 +132,8 @@ function changeMeta(v: string): { text: string; cls: string } {
         </n-tabs>
       </div>
 
-      <div class="hw-list">
-        <Transition name="hw-swap" mode="out-in">
+      <div class="hw-list" ref="listEl">
+        <Transition name="hw-swap" mode="out-in" @after-leave="onSwapAfterLeave">
           <!-- 骨架屏：n-skeleton 实现；行数超满 + 容器溢出隐藏，保证铺满整个列表区 -->
           <div v-if="loading" :key="`loading-${activeTab}`" class="hw-skeletons">
             <div v-for="i in 12" :key="i" class="hw-skel-row">
