@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { NIcon, NSkeleton, NTabPane, NTabs } from 'naive-ui'
+import { NButton, NIcon, NSkeleton, NTabPane, NTabs } from 'naive-ui'
 import { Close, Refresh } from '@vicons/ionicons5'
 import { useSidePanel } from '../composables/useSidePanel'
 import { useHotNewsData, type HotItem } from '../composables/useHotNews'
@@ -101,18 +101,25 @@ const rankLabel = (it: HotItem) => (isTop(it) ? '顶' : String(it.ranking))
           <span v-if="timeLabel" class="hw-updated">
             <i class="hw-live-dot" aria-hidden="true"></i>{{ timeLabel }}
           </span>
-          <button
+          <n-button
             class="hw-icon-btn"
             :class="{ 'is-spin': refreshing }"
+            quaternary
+            circle
+            size="small"
             title="刷新榜单"
             aria-label="刷新榜单"
             @click="loadTab(activeTab, { force: true })"
           >
-            <n-icon :size="16"><Refresh /></n-icon>
-          </button>
-          <button class="hw-icon-btn" title="关闭" aria-label="关闭浮窗" @click="closePanel">
-            <n-icon :size="17"><Close /></n-icon>
-          </button>
+            <template #icon>
+              <n-icon :size="16"><Refresh /></n-icon>
+            </template>
+          </n-button>
+          <n-button class="hw-icon-btn" quaternary circle size="small" title="关闭" aria-label="关闭浮窗" @click="closePanel">
+            <template #icon>
+              <n-icon :size="17"><Close /></n-icon>
+            </template>
+          </n-button>
         </div>
       </header>
 
@@ -150,7 +157,7 @@ const rankLabel = (it: HotItem) => (isTop(it) ? '顶' : String(it.ranking))
           <div v-else-if="error && items.length === 0" :key="`error-${activeTab}`" class="hw-error">
             <div class="hw-error-icon">!</div>
             <p>{{ error }}</p>
-            <button class="hw-retry" @click="loadTab(activeTab, { force: true })">重新加载</button>
+            <n-button class="retry-btn" round ghost color="#BE3A2B" @click="loadTab(activeTab, { force: true })">重新加载</n-button>
           </div>
 
           <!-- 空态 -->
@@ -334,23 +341,20 @@ const rankLabel = (it: HotItem) => (isTop(it) ? '顶' : String(it.ranking))
     transform: scale(1.15);
   }
 }
-.hw-icon-btn {
-  display: grid;
-  place-items: center;
-  width: 29px;
-  height: 29px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--ink-2);
-  cursor: pointer;
-  transition: background 0.25s ease, color 0.25s ease;
-}
-@media (hover: hover) and (pointer: fine) {
-  .hw-icon-btn:hover {
-    background: var(--red-tint);
-    color: var(--red);
-  }
+/* naive 主题变量以内联样式注入组件根节点，覆盖需 !important */
+.hw-icon-btn.n-button {
+  --n-height: 29px !important;
+  --n-width: 29px !important;
+  --n-padding: 0 !important;
+  --n-border-radius: 50% !important;
+  --n-color: transparent !important;
+  --n-color-hover: var(--red-tint) !important;
+  --n-color-focus: var(--red-tint) !important;
+  --n-color-pressed: var(--red-tint) !important;
+  --n-text-color: var(--ink-2) !important;
+  --n-text-color-hover: var(--red) !important;
+  --n-text-color-focus: var(--red) !important;
+  --n-text-color-pressed: var(--red) !important;
 }
 .hw-icon-btn.is-spin :deep(svg) {
   animation: hw-spin 0.9s linear infinite;
@@ -587,22 +591,8 @@ const rankLabel = (it: HotItem) => (isTop(it) ? '顶' : String(it.ranking))
   font-weight: 700;
   line-height: 40px;
 }
-.hw-retry {
+.retry-btn.n-button {
   margin-top: 12px;
-  padding: 6px 18px;
-  border: 1px solid var(--red);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--red);
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: background 0.25s ease, color 0.25s ease;
-}
-@media (hover: hover) and (pointer: fine) {
-  .hw-retry:hover {
-    background: var(--red);
-    color: #fff;
-  }
 }
 
 /* ============ 底部 ============ */
@@ -624,7 +614,7 @@ const rankLabel = (it: HotItem) => (isTop(it) ? '顶' : String(it.ranking))
 /* 键盘焦点可见性 */
 .hw-tab:focus-visible,
 .hw-icon-btn:focus-visible,
-.hw-retry:focus-visible,
+.retry-btn:focus-visible,
 a.hw-row:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;

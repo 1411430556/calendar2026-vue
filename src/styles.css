@@ -376,14 +376,15 @@ section {
   margin-top: 6px;
 }
 
-/* ============ 统计卡片 ============ */
-.stat-card {
-  background: var(--card);
-  border: 1px solid var(--line);
+/* ============ 统计卡片（NCard 实现；圆角需直接写属性：--n-* 变量被 naive 内联样式覆盖） ============ */
+.stat-card.n-card {
   border-radius: var(--rs);
-  padding: 18px 16px;
-  text-align: center;
   box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.stat-card.n-card > .n-card-content {
+  padding: 18px 16px;
 }
 
 /* ============ 节假日卡片（n-card 装饰增强） ============ */
@@ -397,7 +398,7 @@ section {
 }
 
 /* 内容区 flex 列布局：补班标签用 margin-top:auto 统一锚在卡片底部 */
-.hol-card .n-card__content {
+.hol-card .n-card-content {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -464,18 +465,19 @@ section {
   margin-top: auto;
 }
 
-/* ============ 图例 ============ */
-.legend {
+/* ============ 图例（NCard 容器；卡片底色/描边由主题令牌提供） ============ */
+.legend.n-card {
+  border-radius: var(--rs);
+  box-shadow: var(--shadow);
+  margin-top: 22px;
+}
+
+.legend.n-card > .n-card-content {
   display: flex;
   flex-wrap: wrap;
   gap: 14px 26px;
   align-items: center;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--rs);
   padding: 16px 20px;
-  margin-top: 22px;
-  box-shadow: var(--shadow);
 }
 
 .legend h3 {
@@ -840,7 +842,7 @@ footer .wrap {
 }
 
 @media (max-width: 420px) {
-  .stat-card {
+  .stat-card.n-card > .n-card-content {
     padding: 14px 10px;
   }
 }
@@ -856,6 +858,28 @@ footer .wrap {
     opacity: 1 !important;
     transform: none !important;
   }
+}
+
+/* ============ 浮窗重试按钮（两个浮窗共用；NButton ghost：常态描边红，悬停/聚焦填充红底白字） ============ */
+/* naive 主题变量以内联样式注入组件根节点，覆盖需 !important */
+.retry-btn.n-button {
+  --n-height: auto !important;
+  --n-padding: 6px 18px !important;
+  --n-font-size: 0.82rem !important;
+  --n-color-hover: var(--red) !important;
+  --n-color-focus: var(--red) !important;
+  --n-color-pressed: var(--red-deep) !important;
+  --n-text-color-hover: #fff !important;
+  --n-text-color-focus: #fff !important;
+  --n-text-color-pressed: #fff !important;
+  --n-border-hover: 1px solid var(--red) !important;
+  --n-border-focus: 1px solid var(--red) !important;
+  --n-border-pressed: 1px solid var(--red-deep) !important;
+}
+
+.retry-btn.n-button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 
 /* ============ 右侧浮窗互斥避让 ============

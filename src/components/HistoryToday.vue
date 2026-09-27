@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { NSkeleton } from 'naive-ui'
+import { NButton, NSkeleton } from 'naive-ui'
 import { beijingNow } from '../utils/beijing'
 import { buildApiUrl, fetchJson, toErrorMessage, unwrapData, type ApiEnvelope } from '../utils/api'
 import { firstOf, pad2, yearLabel } from '../utils/format'
@@ -126,7 +126,7 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
         <div v-else-if="error" class="ht-error">
           <div class="ht-error-icon">!</div>
           <p>{{ error }}</p>
-          <button class="ht-retry" @click="load(true)">重新加载</button>
+          <n-button class="retry-btn" round ghost color="#BE3A2B" @click="load(true)">重新加载</n-button>
         </div>
 
         <div v-else-if="items.length === 0" class="ht-empty">今日暂无历史记录</div>
@@ -480,22 +480,8 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
   font-weight: 700;
   line-height: 40px;
 }
-.ht-retry {
+.retry-btn.n-button {
   margin-top: 12px;
-  padding: 6px 18px;
-  border: 1px solid var(--red);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--red);
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: background 0.25s ease, color 0.25s ease;
-}
-@media (hover: hover) and (pointer: fine) {
-  .ht-retry:hover {
-    background: var(--red);
-    color: #fff;
-  }
 }
 
 /* ============ 底部 ============ */
@@ -512,7 +498,7 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
 
 /* 键盘焦点可见性 */
 .ht-tab:focus-visible,
-.ht-retry:focus-visible,
+.retry-btn:focus-visible,
 a.ht-item-title:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;

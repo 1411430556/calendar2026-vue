@@ -275,24 +275,24 @@ onUnmounted(() => {
 
         <n-grid :cols="statCols" :x-gap="14" :y-gap="14" style="margin: 26px 0 34px">
           <n-gi>
-            <div class="stat-card">
+            <n-card class="stat-card" size="small">
               <n-statistic label="放假调休总天数" :value="33" :value-style="{ color: '#BE3A2B', fontFamily: `'阿里妈妈东方大楷 Regular', serif`, fontWeight: 900 }" />
-            </div>
+            </n-card>
           </n-gi>
           <n-gi>
-            <div class="stat-card">
+            <n-card class="stat-card" size="small">
               <n-statistic label="周末补班天数" :value="6" :value-style="{ color: '#B98F3E', fontFamily: `'阿里妈妈东方大楷 Regular', serif`, fontWeight: 900 }" />
-            </div>
+            </n-card>
           </n-gi>
           <n-gi>
-            <div class="stat-card">
+            <n-card class="stat-card" size="small">
               <n-statistic label="二十四节气" :value="24" :value-style="{ color: '#2F5D55', fontFamily: `'阿里妈妈东方大楷 Regular', serif`, fontWeight: 900 }" />
-            </div>
+            </n-card>
           </n-gi>
           <n-gi>
-            <div class="stat-card">
+            <n-card class="stat-card" size="small">
               <n-statistic :label="`${GANZHI}${ZODIAC_CHAR}年 · 天`" :value="365" :value-style="{ color: '#4A4238', fontFamily: `'阿里妈妈东方大楷 Regular', serif`, fontWeight: 900 }" />
-            </div>
+            </n-card>
           </n-gi>
         </n-grid>
 
@@ -326,13 +326,13 @@ onUnmounted(() => {
           <h2>图例说明</h2>
         </div>
         <n-divider style="margin: 20px 0 0" />
-        <div class="legend">
+        <n-card class="legend" size="small">
           <h3>标记</h3>
           <div class="lg"><n-tag size="small" round :bordered="false" style="background:#F6E2DC;color:#BE3A2B">休</n-tag> 法定节假日（放假）</div>
           <div class="lg"><n-tag size="small" round :bordered="false" style="background:#F6EBD2;color:#B98F3E">班</n-tag> 调休补班日（周末上班）</div>
           <div class="lg"><span class="dot"></span> 周六 / 周日</div>
           <div class="lg"><n-tag size="small" round :bordered="false" style="background:#EFF3F0;color:#2F5D55">青</n-tag> 节气 · 农历 · 传统节日</div>
-        </div>
+        </n-card>
       </section>
 
       <!-- ============ CALENDAR ============ -->
