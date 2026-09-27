@@ -901,11 +901,3 @@ html.lunar-open .ln-tab {
   transform: translateY(calc(-50% + 10px));
   transition: padding 0.3s ease, opacity 0.3s ease, transform 0.3s ease, visibility 0s;
 }
-@media (max-width: 600px) {
-  /* 移动端热搜入口为左下胶囊（基准 transform 为 none），隐藏位移量不同 */
-  html.hotnews-open .hw-tab,
-  html.history-open .hw-tab,
-  html.lunar-open .hw-tab {
-    transform: translateY(14px);
-  }
-}

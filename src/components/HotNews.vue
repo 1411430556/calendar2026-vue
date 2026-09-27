@@ -220,11 +220,12 @@ const rankLabel = (it: HotItem) => (isTop(it) ? '顶' : String(it.ranking))
 /* ============ 收起态竖排签 ============ */
 .hw-tab {
   position: fixed;
+  /* 上下排列：最下方（间距 8px，步进 49px） */
   right: env(safe-area-inset-right, 0px);
-  top: 75%;
+  top: calc(50% + 49px);
   z-index: 70;
   transform: translateY(-50%);
-  padding: 18px 11px;
+  padding: 10px 14px;
   font-family: '阿里妈妈东方大楷 Regular', Georgia, serif;
   color: #fff;
   background: linear-gradient(165deg, var(--red) 0%, var(--red-deep) 100%);
@@ -239,14 +240,19 @@ const rankLabel = (it: HotItem) => (isTop(it) ? '顶' : String(it.ranking))
     transform 0.4s ease-out 450ms, visibility 0s linear 450ms;
 }
 .hw-tab-text {
-  writing-mode: vertical-rl;
-  letter-spacing: 0.42em;
   font-size: 0.875rem;
   font-weight: 700;
 }
 @media (hover: hover) and (pointer: fine) {
   .hw-tab:hover {
     padding-right: 18px;
+  }
+}
+/* 窄屏：缩小按钮与字号 */
+@media (max-width: 600px) {
+  .hw-tab {
+    padding: 8px 10px;
+    font-size: 0.8rem;
   }
 }
 /* ============ 浮窗面板 ============ */

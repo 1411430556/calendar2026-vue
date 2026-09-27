@@ -268,14 +268,12 @@ const headWeek = computed(() => summary.value?.week ?? '')
 /* ============ 收起态竖排签（位于「历史上的今天」上方） ============ */
 .ln-tab {
   position: fixed;
-  /* 刘海机横屏时竖排签避让右侧灵动岛/圆角 */
+  /* 刘海机横屏时避让右侧灵动岛/圆角；上下排列：最上方（间距 8px，步进 49px） */
   right: env(safe-area-inset-right, 0px);
-  top: 25%;
+  top: calc(50% - 49px);
   z-index: 70;
   transform: translateY(-50%);
-  writing-mode: vertical-rl;
-  letter-spacing: 0.42em;
-  padding: 20px 11px;
+  padding: 10px 14px;
   font-family: '阿里妈妈东方大楷 Regular', Georgia, serif;
   font-size: 0.875rem;
   font-weight: 700;
@@ -294,6 +292,13 @@ const headWeek = computed(() => summary.value?.week ?? '')
 @media (hover: hover) and (pointer: fine) {
   .ln-tab:hover {
     padding-right: 18px;
+  }
+}
+/* 窄屏：缩小按钮与字号 */
+@media (max-width: 600px) {
+  .ln-tab {
+    padding: 8px 10px;
+    font-size: 0.8rem;
   }
 }
 
