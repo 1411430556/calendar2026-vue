@@ -12,6 +12,8 @@ import {
   NGi,
   NBackTop,
   NIcon,
+  zhCN,
+  dateZhCN,
 } from 'naive-ui'
 import { ArrowUp } from '@vicons/ionicons5'
 import { CAL, HOLIDAYS, type DayInfo } from './data/calendar2026'
@@ -21,6 +23,7 @@ import { themeOverrides } from './theme'
 import HistoryToday from './components/HistoryToday.vue'
 import DailyQuote from './components/DailyQuote.vue'
 import HotNews from './components/HotNews.vue'
+import LunarCalendar from './components/LunarCalendar.vue'
 
 const WNAMES = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']
 const MNAMES = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
@@ -197,7 +200,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <n-config-provider :theme-overrides="themeOverrides">
+  <n-config-provider :theme-overrides="themeOverrides" :locale="zhCN" :date-locale="dateZhCN">
     <n-global-style />
     <div class="page">
       <!-- ============ HERO ============ -->
@@ -380,6 +383,9 @@ onUnmounted(() => {
 
       <!-- ============ 历史上的今天浮窗 ============ -->
       <HistoryToday />
+
+      <!-- ============ 农历黄历浮窗 ============ -->
+      <LunarCalendar />
 
       <!-- ============ 百度热搜新闻榜浮窗 ============ -->
       <HotNews />

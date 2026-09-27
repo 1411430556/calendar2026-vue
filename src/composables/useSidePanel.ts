@@ -15,6 +15,8 @@ export interface SidePanelOptions {
   mutexClass: string
   /** 面板内可滚动列表的选择器，滚轮锁定据此判断是否到达边界 */
   listSelector: string
+  /** 点击浮窗外部时，命中此选择器的元素不触发关闭（如日期面板 teleport 到 body） */
+  outsideIgnoreSelector?: string
   /** 打开动画首帧就绪后执行（加载数据、启动定时器等） */
   onOpen?: () => void
   /** 关闭时执行（停止定时器等）；互斥 class 不在此刻摘除 */
@@ -48,8 +50,17 @@ export function useSidePanel(options: SidePanelOptions) {
     if (!open.value) document.documentElement.classList.remove(mutexClass)
   }
 
-  // 点击浮窗外部任意区域关闭（pointerdown 同时覆盖鼠标 / 触摸 / 笔）
+  // 点击浮窗外部任意区域关闭（pointerdown 同时覆盖鼠标 / 触摸 / 笔）；
+  // naive-ui 弹层（如日期面板）teleport 到 <body> 后已不在面板 DOM 内，
+  // 命中 outsideIgnoreSelector 的点击视为"面板内交互"，不关闭浮窗
   function onDocPointerDown(e: PointerEvent) {
+    if (
+      options.outsideIgnoreSelector &&
+      e.target instanceof Element &&
+      e.target.closest(options.outsideIgnoreSelector)
+    ) {
+      return
+    }
     if (panelRef.value && e.target instanceof Node && !panelRef.value.contains(e.target)) closePanel()
   }
 

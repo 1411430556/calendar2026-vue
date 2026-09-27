@@ -289,7 +289,7 @@ const cleanDesc = (s: string) => s.replace(/【相见拾光】/g, '').trim()
   font-size: 0.76rem;
   padding: 1px 8px;
   border-radius: 7px;
-  transform: rotate(-3deg);
+  /* transform: rotate(-3deg); */
   box-shadow: 1px 1px 0 rgba(190, 58, 43, 0.22);
 }
 /* ============ 时间线列表 ============ */
