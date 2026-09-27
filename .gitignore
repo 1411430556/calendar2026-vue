@@ -35,3 +35,7 @@ yarn.lock
 
 # Trae IDE 本地 HTML 分享产物
 .trae-html-share-packages/
+
+# Trae IDE 本地状态：默认忽略 .trae 下所有内容，仅保留团队共享的 rules 规则目录
+.trae/*
+!.trae/rules/
