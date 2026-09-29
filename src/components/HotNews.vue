@@ -35,6 +35,11 @@ const {
 } = useHotNewsData(open)
 
 function startSession() {
+  // 每次打开都视为"首次内容出现"：首榜播放入场动画，本次打开期间切榜才走平移
+  firstRendered.value = false
+  // 清理上次可能残留的滑动状态（动画进行中关闭浮窗的边界情况）
+  window.clearTimeout(slideTimer)
+  leaveRows.value = null
   void loadTab(activeTab.value)
   // 后台预取其余全部榜单，预取完成后切换任何标签都是即时渲染
   void prefetchRest(activeTab.value)
@@ -43,22 +48,120 @@ function startSession() {
 }
 function stopSession() {
   document.removeEventListener('visibilitychange', onVisibility)
+  window.clearTimeout(slideTimer)
   stopAuto()
 }
 
 // ============ 切换榜单时列表回到顶部 ============
 // 各榜单共用同一个 .hw-list 滚动容器，切榜只替换内部列表，滚动位置不会自动复位。
-// 在旧榜单离场动画结束（@after-leave）、新内容尚未插入的间隙归零，
-// 避免淡出中的旧内容出现可见的位置跳变。仅标签切换置位，手动刷新保持原有滚动位置
+// 切榜开始瞬间立即归零（双层平移在顶部进行，高度差不可见）；
+// 未命中缓存走骨架屏时，由 @after-leave 在旧内容离场间隙兜底归零
 const listEl = ref<HTMLElement | null>(null)
 let pendingScrollReset = false
-watch(activeTab, () => {
-  pendingScrollReset = true
-})
 function onSwapAfterLeave() {
   if (!pendingScrollReset) return
   pendingScrollReset = false
   listEl.value?.scrollTo(0, 0)
+}
+
+// ============ 切榜双层平移舞台 ============
+// out-in 单容器过渡必然是"旧内容消失 → 空白 → 新内容出现"；要做到连贯的轮播式滑动，
+// 切榜瞬间必须同时存在两层：离开层（旧榜快照，绝对定位覆盖）与进入层（新榜，在文档流中
+// 撑开滚动高度）。两层用相同时长/缓动做方向相反的纯 translateX 动画，全程不透明、无空白。
+// 仅当新旧两榜都有可渲染数据（已预取、命中缓存同步渲染）时启用；
+// 新榜未缓存（loading）或异常时退化为骨架屏/错误态淡入
+const stageRows = ref<HotItem[]>([])
+const stageKey = ref('')
+const leaveRows = ref<HotItem[] | null>(null)
+// 每次切榜自增：强制进入层 ol 重新挂载以重播滑入动画
+const animNonce = ref(0)
+const animDir = ref<1 | -1>(1)
+let slideTimer: number | undefined
+
+// 首次打开浮窗：首榜沿用淡入+上移（hw-swap）与条目逐条入场；之后切榜才走双层平移
+const firstRendered = ref(false)
+
+// 数据层 watch（useHotNewsData 内）先注册先执行，故本 watch 触发时 items/loading
+// 已是目标榜状态：命中内存/localStorage 缓存时 items 已同步替换，未命中则 loading=true
+watch(activeTab, (next, prev) => {
+  const iNext = TABS.findIndex((t) => t.key === next)
+  const iPrev = TABS.findIndex((t) => t.key === prev)
+  if (iNext >= 0 && iPrev >= 0 && iNext !== iPrev) animDir.value = iNext > iPrev ? 1 : -1
+  firstRendered.value = true
+
+  if (loading.value || items.value.length === 0) {
+    // 新榜无现成内容：中断可能进行中的滑动，交给骨架屏/错误态分支
+    window.clearTimeout(slideTimer)
+    leaveRows.value = null
+    pendingScrollReset = true
+    return
+  }
+
+  // 双层滑动：以当前舞台内容（旧榜）为离场快照，新榜数据即刻铺到进入层
+  listEl.value?.scrollTo(0, 0)
+  if (stageRows.value.length && stageKey.value === prev) leaveRows.value = stageRows.value
+  stageRows.value = items.value
+  stageKey.value = next
+  animNonce.value++
+  window.clearTimeout(slideTimer)
+  // 与 CSS 动画时长（0.3s/0.32s）对齐，结束后移除离场层，舞台回到单层
+  slideTimer = window.setTimeout(() => {
+    leaveRows.value = null
+  }, 340)
+})
+
+// 同榜静默刷新（定时自动刷新等）：直接更新舞台内容，不产生任何切换动画
+watch(items, (v) => {
+  if (leaveRows.value) return // 滑动中所需数据已由 activeTab watch 显式铺设
+  if (!loading.value && v.length) {
+    stageRows.value = v
+    stageKey.value = activeTab.value
+  }
+})
+
+// ============ 移动端左右滑动切换榜单 ============
+// 触摸起点记录；方向锁在首次明显移动时确定为水平或垂直，水平手势才参与切榜判定，
+// 避免上下滚动列表时误触切换
+let touchX = 0
+let touchY = 0
+let touchT = 0
+let swipeAxis: '' | 'x' | 'y' = ''
+
+function onSwipeStart(e: TouchEvent) {
+  const t = e.touches[0]
+  touchX = t.clientX
+  touchY = t.clientY
+  touchT = Date.now()
+  swipeAxis = ''
+}
+
+function onSwipeMove(e: TouchEvent) {
+  if (swipeAxis) return
+  const t = e.touches[0]
+  const dx = t.clientX - touchX
+  const dy = t.clientY - touchY
+  // 超过 10px 才判定主方向，过滤手指微抖
+  if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+    swipeAxis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
+  }
+}
+
+function onSwipeEnd(e: TouchEvent) {
+  const axis = swipeAxis
+  swipeAxis = ''
+  if (axis !== 'x') return
+  const t = e.changedTouches[0]
+  const dx = t.clientX - touchX
+  const dt = Date.now() - touchT
+  const idx = TABS.findIndex((x) => x.key === activeTab.value)
+  // 快速轻扫（500ms 内位移超 40px）或拖动超过容器 1/4 宽度，二者满足其一即切换
+  const width = listEl.value?.clientWidth ?? 320
+  const isFlick = dt < 500 && Math.abs(dx) > 40
+  const isLongDrag = Math.abs(dx) > width * 0.25
+  if (!isFlick && !isLongDrag) return
+  // 手指向左滑 → 下一榜；向右滑 → 上一榜；首尾榜不循环
+  if (dx < 0 && idx >= 0 && idx < TABS.length - 1) activeTab.value = TABS[idx + 1].key
+  else if (dx > 0 && idx > 0) activeTab.value = TABS[idx - 1].key
 }
 
 // ============ 展示辅助 ============
@@ -139,10 +242,18 @@ const rankLabel = (it: HotItem) => (isTop(it) ? '顶' : String(it.ranking))
         </n-tabs>
       </div>
 
-      <div class="hw-list" ref="listEl">
+      <div
+        class="hw-list"
+        ref="listEl"
+        @touchstart.passive="onSwipeStart"
+        @touchmove.passive="onSwipeMove"
+        @touchend="onSwipeEnd"
+        @touchcancel="swipeAxis = ''"
+      >
         <Transition name="hw-swap" mode="out-in" @after-leave="onSwapAfterLeave">
-          <!-- 骨架屏：n-skeleton 实现；行数超满 + 容器溢出隐藏，保证铺满整个列表区 -->
-          <div v-if="loading" :key="`loading-${activeTab}`" class="hw-skeletons">
+          <!-- 骨架屏：n-skeleton 实现；行数超满 + 容器溢出隐藏，保证铺满整个列表区。
+               滑动舞台一旦有数据即承载列表，切到未缓存榜单时才回落到骨架屏 -->
+          <div v-if="loading && stageRows.length === 0" :key="`loading-${activeTab}`" class="hw-skeletons">
             <div v-for="i in 12" :key="i" class="hw-skel-row">
               <n-skeleton class="hw-skel-rank" :sharp="false" />
               <span class="hw-skel-wrap">
@@ -154,57 +265,107 @@ const rankLabel = (it: HotItem) => (isTop(it) ? '顶' : String(it.ranking))
           </div>
 
           <!-- 错误态（无缓存数据时） -->
-          <div v-else-if="error && items.length === 0" :key="`error-${activeTab}`" class="hw-error">
+          <div v-else-if="error && stageRows.length === 0" :key="`error-${activeTab}`" class="hw-error">
             <div class="hw-error-icon">!</div>
             <p>{{ error }}</p>
             <n-button class="retry-btn" round ghost color="#BE3A2B" @click="loadTab(activeTab, { force: true })">重新加载</n-button>
           </div>
 
           <!-- 空态 -->
-          <div v-else-if="items.length === 0" key="empty" class="hw-error">当前榜单暂无数据</div>
+          <div v-else-if="stageRows.length === 0" key="empty" class="hw-error">当前榜单暂无数据</div>
 
-          <!-- 榜单列表：key 含榜单名，切换时重播入场动画；静默刷新不换 key、无动画打扰 -->
-          <ol v-else :key="`list-${activeTab}`" class="hw-items" :aria-label="`百度${currentLabel}榜`">
-            <li
-              v-for="(it, i) in items"
-              :key="String(it.ranking) + it.word"
-              class="hw-item"
-              :style="{ '--i': Math.min(i, 12) }"
-            >
-              <component
-                :is="itemLink(it) ? 'a' : 'div'"
-                class="hw-row"
-                :href="itemLink(it) || undefined"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <span class="hw-rank" :class="rankClass(it)">{{ rankLabel(it) }}</span>
-                <span class="hw-main">
-                  <span class="hw-word">
-                    {{ it.word }}
-                    <img
-                      v-if="tagImgOf(it.hotTagImg)"
-                      :src="tagImgOf(it.hotTagImg)"
-                      class="hw-tagimg"
-                      alt=""
-                      loading="lazy"
+          <!-- 榜单列表双层舞台（key 恒定：切榜在舞台内部完成，不经过外层 Transition，
+               因此没有任何淡入淡出；首次挂载时条目逐条入场，切榜时纯横向平移）。
+               离开层与进入层行结构必须保持一致，修改行结构时两处同步 -->
+          <div v-else key="stage" class="hw-stage" :class="leaveRows ? (animDir === 1 ? 'hw-stage--l' : 'hw-stage--r') : ''">
+            <!-- 离开层：旧榜快照，绝对定位覆盖，自起始位向侧方滑出 -->
+            <ol v-if="leaveRows" class="hw-items hw-layer hw-layer--leave hw-items--plain" aria-hidden="true">
+              <li v-for="it in leaveRows" :key="String(it.ranking) + it.word" class="hw-item">
+                <component
+                  :is="itemLink(it) ? 'a' : 'div'"
+                  class="hw-row"
+                  :href="itemLink(it) || undefined"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  tabindex="-1"
+                >
+                  <span class="hw-rank" :class="rankClass(it)">{{ rankLabel(it) }}</span>
+                  <span class="hw-main">
+                    <span class="hw-word">
+                      {{ it.word }}
+                      <img
+                        v-if="tagImgOf(it.hotTagImg)"
+                        :src="tagImgOf(it.hotTagImg)"
+                        class="hw-tagimg"
+                        alt=""
+                        loading="lazy"
+                      >
+                    </span>
+                    <span v-if="it.desc" class="hw-desc">{{ it.desc }}</span>
+                  </span>
+                  <span class="hw-meta">
+                    <span v-if="formatHot(it.hotScore)" class="hw-score">{{ formatHot(it.hotScore) }}</span>
+                    <span
+                      v-if="changeMeta(it.hotChange).text"
+                      class="hw-change"
+                      :class="changeMeta(it.hotChange).cls"
                     >
+                      {{ changeMeta(it.hotChange).text }}
+                    </span>
                   </span>
-                  <span v-if="it.desc" class="hw-desc">{{ it.desc }}</span>
-                </span>
-                <span class="hw-meta">
-                  <span v-if="formatHot(it.hotScore)" class="hw-score">{{ formatHot(it.hotScore) }}</span>
-                  <span
-                    v-if="changeMeta(it.hotChange).text"
-                    class="hw-change"
-                    :class="changeMeta(it.hotChange).cls"
-                  >
-                    {{ changeMeta(it.hotChange).text }}
+                </component>
+              </li>
+            </ol>
+
+            <!-- 进入层：当前榜数据，文档流内撑开滚动高度，自对侧滑入；
+                 key 随榜单+nonce 变化以在每次切榜时重播滑入动画 -->
+            <ol
+              :key="`${stageKey}-${animNonce}`"
+              class="hw-items hw-layer hw-layer--enter"
+              :class="{ 'hw-items--plain': firstRendered }"
+              :aria-label="`百度${currentLabel}榜`"
+            >
+              <li
+                v-for="(it, i) in stageRows"
+                :key="String(it.ranking) + it.word"
+                class="hw-item"
+                :style="{ '--i': Math.min(i, 12) }"
+              >
+                <component
+                  :is="itemLink(it) ? 'a' : 'div'"
+                  class="hw-row"
+                  :href="itemLink(it) || undefined"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span class="hw-rank" :class="rankClass(it)">{{ rankLabel(it) }}</span>
+                  <span class="hw-main">
+                    <span class="hw-word">
+                      {{ it.word }}
+                      <img
+                        v-if="tagImgOf(it.hotTagImg)"
+                        :src="tagImgOf(it.hotTagImg)"
+                        class="hw-tagimg"
+                        alt=""
+                        loading="lazy"
+                      >
+                    </span>
+                    <span v-if="it.desc" class="hw-desc">{{ it.desc }}</span>
                   </span>
-                </span>
-              </component>
-            </li>
-          </ol>
+                  <span class="hw-meta">
+                    <span v-if="formatHot(it.hotScore)" class="hw-score">{{ formatHot(it.hotScore) }}</span>
+                    <span
+                      v-if="changeMeta(it.hotChange).text"
+                      class="hw-change"
+                      :class="changeMeta(it.hotChange).cls"
+                    >
+                      {{ changeMeta(it.hotChange).text }}
+                    </span>
+                  </span>
+                </component>
+              </li>
+            </ol>
+          </div>
         </Transition>
       </div>
 
@@ -396,7 +557,11 @@ const rankLabel = (it: HotItem) => (isTop(it) ? '顶' : String(it.ranking))
 .hw-list {
   flex: 1;
   overflow-y: auto;
+  /* 切榜平移时内容不产生横向滚动条（transform 本不触发布局溢出，hidden 为双保险） */
+  overflow-x: hidden;
   overscroll-behavior: contain;
+  /* 纵向滚动交给浏览器原生处理，横向手势交由滑动切榜逻辑（桌面无触摸不受影响） */
+  touch-action: pan-y;
   padding: 7px 10px;
   scrollbar-width: thin;
   scrollbar-color: var(--line-2) transparent;
@@ -410,6 +575,11 @@ const rankLabel = (it: HotItem) => (isTop(it) ? '顶' : String(it.ranking))
 }
 .hw-items {
   list-style: none;
+}
+/* 非首次切榜：关闭条目逐条入场，整列表由外层 slide 过渡平移 */
+.hw-items--plain .hw-item {
+  opacity: 1;
+  animation: none;
 }
 .hw-item {
   opacity: 0;
@@ -547,6 +717,65 @@ const rankLabel = (it: HotItem) => (isTop(it) ? '顶' : String(it.ranking))
 }
 .hw-swap-leave-to {
   opacity: 0;
+}
+
+/* ============ 切榜双层平移舞台 ============ */
+/* 进入层（当前榜）在文档流内撑开滚动高度；离开层（旧榜快照）绝对定位覆盖其上。
+   两层以相同的时长与缓动做方向相反的纯 translateX 动画，边缘始终贴合、全程不透明，
+   从视觉上就是一整屏内容被横着推走，没有淡入淡出与中间空白 */
+.hw-stage {
+  position: relative;
+}
+.hw-layer--leave {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+/* 切到下一榜（--l）：旧层向左滑出，新层自右滑入 */
+.hw-stage--l .hw-layer--leave {
+  animation: hw-slide-out-l 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+.hw-stage--l .hw-layer--enter {
+  animation: hw-slide-in-l 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+@keyframes hw-slide-out-l {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes hw-slide-in-l {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+/* 切到上一榜（--r）：方向镜像 */
+.hw-stage--r .hw-layer--leave {
+  animation: hw-slide-out-r 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+.hw-stage--r .hw-layer--enter {
+  animation: hw-slide-in-r 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+@keyframes hw-slide-out-r {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes hw-slide-in-r {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 /* ============ 骨架屏（naive-ui NSkeleton） ============ */

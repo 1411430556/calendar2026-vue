@@ -99,6 +99,16 @@ function goNow() {
   void load(selectedTs.value, true)
 }
 
+// ============ 内容切换后滚动区回顶 ============
+// 重选日期/时刻（onPick / goNow）会以新 stamp 重播 ln-swap 过渡；
+// 各时刻内容共用同一个 .ln-list 滚动容器，位置不会自动复位。
+// 在旧内容离场结束（after-leave）、新内容插入前的间隙归零，
+// 避免淡出中的旧内容出现可见的位置跳变
+const listEl = ref<HTMLElement | null>(null)
+function onSwapAfterLeave() {
+  listEl.value?.scrollTo(0, 0)
+}
+
 const summary = computed(() => (data.value ? buildSummary(data.value) : null))
 const sections = computed(() => (data.value ? buildSections(data.value) : []))
 // 头部日期印章优先用接口返回（含星期），数据未就绪时回落展示当前所选日期
@@ -167,8 +177,8 @@ const headWeek = computed(() => summary.value?.week ?? '')
         />
       </div>
 
-      <div class="ln-list">
-        <Transition name="ln-swap" mode="out-in">
+      <div class="ln-list" ref="listEl">
+        <Transition name="ln-swap" mode="out-in" @after-leave="onSwapAfterLeave">
           <!-- 骨架屏 -->
           <div v-if="loading" key="loading" class="ln-skel">
             <n-skeleton class="ln-skel-hero" :sharp="false" />
