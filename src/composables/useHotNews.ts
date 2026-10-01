@@ -98,6 +98,17 @@ export function useHotNewsData(open: Ref<boolean>) {
 
   const writeStorageEntry = (tab: string, entry: CacheEntry) => writeStorageJSON(storageKey(tab), entry)
 
+  /**
+   * 同步读取某榜单的已缓存列表（内存优先，其次 localStorage），不触发任何请求。
+   * 供浮窗跟手手势在拖拽瞬间渲染相邻榜单的预览层，保证零延迟
+   */
+  function peekCached(tab: string): HotItem[] | null {
+    const mem = memCache.get(tab)
+    if (mem) return mem.list
+    const cached = readStorage(tab)
+    return cached ? cached.list : null
+  }
+
   const currentLabel = computed(() => TABS.find((t) => t.key === activeTab.value)?.label ?? '热搜')
   const timeLabel = computed(() => {
     if (!lastUpdated.value) return ''
@@ -275,6 +286,7 @@ export function useHotNewsData(open: Ref<boolean>) {
     currentLabel,
     timeLabel,
     loadTab,
+    peekCached,
     prefetchRest,
     ensureFetched,
     startAuto,
