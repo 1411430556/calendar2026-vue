@@ -2,39 +2,11 @@
 import { computed, ref } from 'vue'
 import { NButton, NDatePicker, NIcon, NSkeleton } from 'naive-ui'
 import { Close, Refresh } from '@vicons/ionicons5'
-import { beijingNow } from '../utils/beijing'
-import { buildApiUrl, createRateLimiter, fetchJson, toErrorMessage, unwrapData, type ApiEnvelope } from '../utils/api'
-import { buildSections, buildSummary, solarLabel, toApiDate14, type LunarProData } from '../utils/lunar'
-import { readStorageJSON, writeStorageJSON } from '../utils/storage'
+import { buildSections, buildSummary, solarLabel } from '../utils/lunar'
 import { useSidePanel } from '../composables/useSidePanel'
+import { useLunarData, beijingWallTs } from '../composables/useLunarData'
 
-const API_URL = 'https://api.shwgij.com/api/lunars/lunarpro'
-
-// 接口限制 1 秒 2 次：串行限速取 600ms 间隔，防止连续切换日期触发频控
-const limiter = createRateLimiter(600)
-
-/**
- * 取当前北京时间（UTC+8）的年月日时分秒，构造一个"本地墙钟读数 = 北京墙钟读数"的时间戳：
- * 选择器显示与接口语义（北京时间）保持一致，与访客本地时区无关（与 beijingNow 同理）
- */
-function beijingWallTs(): number {
-  const b = beijingNow()
-  return new Date(
-    b.getUTCFullYear(),
-    b.getUTCMonth(),
-    b.getUTCDate(),
-    b.getUTCHours(),
-    b.getUTCMinutes(),
-    b.getUTCSeconds(),
-  ).getTime()
-}
-
-const selectedTs = ref(beijingWallTs())
-const data = ref<LunarProData | null>(null)
-const loading = ref(false)
-const error = ref('')
-/** 当前已加载数据对应的 14 位请求参数，作为内容切换过渡的 key（时刻变则整体重播入场） */
-const stamp = ref('')
+const { selectedTs, data, loading, error, stamp, load, onPick, goNow } = useLunarData()
 
 // 浮窗开合 / 互斥避让 / 外部点击关闭 / 滚轮锁定 / 移动端下拉手势均由公共 composable 承担；
 // 日期面板被 naive-ui teleport 到 <body>（不在面板 DOM 内），点击其内部通过
@@ -49,55 +21,6 @@ const { open, panelRef, openPanel, closePanel, onAfterLeave, drag } = useSidePan
     void load(selectedTs.value)
   },
 })
-
-let seq = 0
-function apply(d: LunarProData, key14: string) {
-  data.value = d
-  stamp.value = key14
-}
-
-async function load(ts: number, force = false) {
-  const key14 = toApiDate14(ts)
-  const cacheKey = `lunarPro:${key14}`
-  if (!force) {
-    // 同一时刻的历法数据不再变化，跨会话缓存直接渲染（脏 JSON 由存储层自动剔除）
-    const cached = readStorageJSON<LunarProData>(cacheKey)
-    if (cached) {
-      apply(cached, key14)
-      return
-    }
-  }
-  // 序号兜底：慢响应返回时若用户已改选新时刻，丢弃过期结果
-  const my = ++seq
-  loading.value = true
-  error.value = ''
-  try {
-    // 10 秒超时：弱网挂起时进入错误态并展示"重新加载"，而非永久骨架屏
-    const json = await limiter(() => fetchJson<ApiEnvelope>(buildApiUrl(API_URL, { date: key14 }), 10_000))
-    if (my !== seq) return
-    const d = unwrapData<LunarProData>(json)
-    if (!d || typeof d !== 'object') throw new Error('接口返回异常')
-    writeStorageJSON(cacheKey, d)
-    apply(d, key14)
-  } catch (e) {
-    if (my !== seq) return
-    error.value = toErrorMessage(e)
-  } finally {
-    if (my === seq) loading.value = false
-  }
-}
-
-function onPick(ts: number | null) {
-  if (ts == null) return
-  selectedTs.value = ts
-  void load(ts)
-}
-
-/** 回到当前时刻并强制刷新（跳过缓存） */
-function goNow() {
-  selectedTs.value = beijingWallTs()
-  void load(selectedTs.value, true)
-}
 
 // ============ 内容切换后滚动区回顶 ============
 // 重选日期/时刻（onPick / goNow）会以新 stamp 重播 ln-swap 过渡；
