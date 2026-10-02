@@ -883,15 +883,22 @@ footer .wrap {
 }
 
 /* ============ 右侧浮窗互斥避让 ============
-   任一浮窗打开时（html.hotnews-open / html.history-open / html.lunar-open），三个侧签共享
-   同一过渡同步隐藏；类在面板离场动画结束后才移除，各侧签再按组件内
+   任一浮窗打开时（html.weather-open / hotnews-open / history-open / lunar-open），
+   四个侧签共享同一过渡同步隐藏；类在面板离场动画结束后才移除，各侧签再按组件内
    统一的 450ms 延迟过渡同步回归，避免一前一后 */
+html.weather-open .wt-tab,
+html.weather-open .ht-tab,
+html.weather-open .hw-tab,
+html.weather-open .ln-tab,
+html.hotnews-open .wt-tab,
 html.hotnews-open .ht-tab,
 html.hotnews-open .hw-tab,
 html.hotnews-open .ln-tab,
+html.history-open .wt-tab,
 html.history-open .ht-tab,
 html.history-open .hw-tab,
 html.history-open .ln-tab,
+html.lunar-open .wt-tab,
 html.lunar-open .ht-tab,
 html.lunar-open .hw-tab,
 html.lunar-open .ln-tab {

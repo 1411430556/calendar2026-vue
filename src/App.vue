@@ -24,6 +24,7 @@ import HistoryToday from './components/HistoryToday.vue'
 import DailyQuote from './components/DailyQuote.vue'
 import HotNews from './components/HotNews.vue'
 import LunarCalendar from './components/LunarCalendar.vue'
+import WeatherPanel from './components/WeatherPanel.vue'
 
 const WNAMES = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']
 const MNAMES = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
@@ -380,6 +381,9 @@ onUnmounted(() => {
           </n-gi>
         </n-grid>
       </section>
+
+      <!-- ============ 当地天气浮窗 ============ -->
+      <WeatherPanel />
 
       <!-- ============ 历史上的今天浮窗 ============ -->
       <HistoryToday />
