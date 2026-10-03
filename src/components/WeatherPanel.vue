@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { NButton, NIcon, NSkeleton } from 'naive-ui'
-import { Close, Refresh } from '@vicons/ionicons5'
+import { Close, Refresh, Moon, Sunny } from '@vicons/ionicons5'
 import { useSidePanel } from '../composables/useSidePanel'
 import { useWeatherData, type WeatherDay, type WeatherHour, type WeatherIndexItem } from '../composables/useWeather'
 import { beijingNow } from '../utils/beijing'
@@ -42,6 +42,18 @@ const hours = computed<WeatherHour[]>(() => {
 })
 
 const days = computed<WeatherDay[]>(() => data.value?.forecast_24h ?? [])
+
+// 逐小时项的日期标签：预报跨夜（48 小时），用「今天 / 明天 / m/d」标明每项所属北京日期
+const bjDayKey = (d: Date) => `${d.getUTCFullYear()}${pad2(d.getUTCMonth() + 1)}${pad2(d.getUTCDate())}`
+const todayKey = computed(() => bjDayKey(beijingNow()))
+const tomorrowKey = computed(() => bjDayKey(beijingNow(Date.now() + 24 * 3600_000)))
+// update_time 为 "yyyyMMddHHmm(ss)" 北京时串，前 8 位即北京日期
+function hourDateLabel(t: string) {
+  const d = t.slice(0, 8)
+  if (d === todayKey.value) return '今天'
+  if (d === tomorrowKey.value) return '明天'
+  return `${Number(d.slice(4, 6))}/${Number(d.slice(6, 8))}`
+}
 
 // 8 天温度区间条：以全周期最低/最高温为标尺定位每天色块
 const tempScale = computed(() => {
@@ -109,7 +121,7 @@ function fmtAlarmTime(t: string) {
 <template>
   <!-- 收起态：右侧竖排签，四个浮窗中位于最上方（步进 49px：天气 -98 / 农历 -49 / 历史 0 / 热搜 +49） -->
   <button class="wt-tab" aria-label="查看当地天气" @click="openPanel">
-    <span class="wt-tab-text">当地天气</span>
+    <span class="wt-tab-text">实时天气</span>
   </button>
 
   <!-- 遮罩：仅移动端显示，点击关闭 -->
@@ -133,7 +145,7 @@ function fmtAlarmTime(t: string) {
       <header class="wt-head side-panel-head">
         <div class="wt-head-info">
           <div class="wt-kicker">TENCENT WEATHER</div>
-          <h3 class="wt-title">当地天气</h3>
+          <h3 class="wt-title">实时天气</h3>
           <div v-if="data" class="wt-sub">{{ cityFull }} · {{ updatedLabel }}</div>
         </div>
         <div class="wt-actions">
@@ -232,6 +244,7 @@ function fmtAlarmTime(t: string) {
             <div class="wt-hours">
               <div v-for="(h, i) in hours" :key="i" class="wt-hour" :style="{ '--i': Math.min(i, 12) }">
                 <span class="wt-hour-time">{{ i === 0 ? '现在' : `${Number(h.update_time.slice(8, 10))}时` }}</span>
+                <span class="wt-hour-date">{{ hourDateLabel(h.update_time) }}</span>
                 <img v-if="h.weather_url" :src="h.weather_url" class="wt-hour-icon" alt="" referrerpolicy="no-referrer">
                 <span class="wt-hour-degree">{{ h.degree }}°</span>
                 <span class="wt-hour-wind">{{ h.wind_direction }}</span>
@@ -241,11 +254,19 @@ function fmtAlarmTime(t: string) {
 
           <!-- ============ 日出日落 / 限行 ============ -->
           <section v-if="rise || data.limit" class="wt-sec wt-meta-row" :style="{ '--i': 3 }">
-            <div v-if="rise" class="wt-meta-item">
-              <span class="wt-meta-label">日出 / 日落</span>
-              <span class="wt-meta-value">{{ rise.sunrise }} / {{ rise.sunset }}</span>
+            <div v-if="rise" class="wt-meta-item wt-meta-rise">
+              <div class="wt-rise-row">
+                <n-icon class="wt-rise-ico wt-rise-ico--sun" :size="13"><Sunny /></n-icon>
+                <span class="wt-meta-label">日出</span>
+                <span class="wt-meta-value">{{ rise.sunrise }}</span>
+              </div>
+              <div class="wt-rise-row">
+                <n-icon class="wt-rise-ico wt-rise-ico--moon" :size="13"><Moon /></n-icon>
+                <span class="wt-meta-label">日落</span>
+                <span class="wt-meta-value">{{ rise.sunset }}</span>
+              </div>
             </div>
-            <div v-if="data.limit" class="wt-meta-item">
+            <div v-if="data.limit" class="wt-meta-item wt-meta-limit">
               <span class="wt-meta-label">机动车限行</span>
               <span class="wt-meta-value">{{ data.limit.tail_number }}</span>
             </div>
@@ -452,7 +473,10 @@ function fmtAlarmTime(t: string) {
 }
 
 /* 分区：统一淡入 + 轻微上移入场（逐区延迟，封顶避免长时间等待） */
+/* 必须显式 padding: 0：全局 section { padding: clamp(40px,6vw,72px) 0 } 会穿透 scoped 样式，
+   未重置的分区上下会多出 40~72px 死空白（与 LunarCalendar 的 .ln-sec 同理） */
 .wt-sec {
+  padding: 0;
   opacity: 0;
   animation: wt-sec-in 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both;
   animation-delay: calc(var(--i, 0) * 70ms);
@@ -617,8 +641,8 @@ function fmtAlarmTime(t: string) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px 0;
+  gap: 3px;
+  padding: 6px 0;
   border-radius: 10px;
   opacity: 0;
   animation: wt-item-in 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both;
@@ -642,6 +666,18 @@ function fmtAlarmTime(t: string) {
   color: var(--red);
   font-weight: 700;
 }
+/* 日期标签：标明每个小时项所属日期，跨夜预报一眼可辨 */
+.wt-hour-date {
+  font-size: 0.6rem;
+  line-height: 1.15;
+  color: var(--ink-3);
+  opacity: 0.8;
+  white-space: nowrap;
+}
+.wt-hour:first-child .wt-hour-date {
+  color: var(--red);
+  opacity: 1;
+}
 .wt-hour-icon {
   width: 34px;
   height: 34px;
@@ -663,15 +699,16 @@ function fmtAlarmTime(t: string) {
 .wt-meta-row {
   display: flex;
   gap: 10px;
-  margin-top: 4px;
+  margin-top: 10px;
 }
 .wt-meta-item {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 9px 12px;
+  padding: 8px 12px;
   border-radius: 10px;
   background: var(--paper-2);
   border: 1px solid var(--line);
@@ -679,10 +716,42 @@ function fmtAlarmTime(t: string) {
 }
 .wt-meta-label {
   color: var(--ink-3);
+  white-space: nowrap;
 }
 .wt-meta-value {
   font-weight: 700;
   color: var(--ink-2);
+  white-space: nowrap;
+}
+/* 日出日落卡片：日出 / 日落各占一行，图标对齐标签、时间贴右 */
+.wt-meta-rise {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 5px;
+}
+.wt-rise-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wt-rise-row .wt-meta-value {
+  margin-left: auto;
+}
+.wt-rise-ico--sun {
+  color: #c98a2b;
+  flex: none;
+}
+.wt-rise-ico--moon {
+  color: #6b7e92;
+  flex: none;
+}
+/* 超窄屏（<380px）两卡并排会拥挤，改为上下堆叠 */
+@media (max-width: 380px) {
+  .wt-meta-row {
+    flex-direction: column;
+    gap: 8px;
+  }
 }
 
 /* ============ 未来 8 天 ============ */

@@ -8,10 +8,12 @@
   },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "vue-tsc --noEmit && vite build",
+    "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "vue-tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify": "vue-tsc --noEmit && vitest run && vite build"
   },
   "dependencies": {
     "@vicons/ionicons5": "^0.13.0",

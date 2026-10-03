@@ -749,6 +749,36 @@ footer .wrap {
   padding-top: 14px;
 }
 
+/* ============ 每日一言 + GitHub 入口：同一行布局 ============ */
+.dq-row {
+  width: min(1180px, 92vw);
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  /* 由行容器统一承担原 DailyQuote 的顶部留白，保证图标与卡片垂直居中 */
+  padding-top: 22px;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+.dq-row .dq {
+  flex: 1;
+  min-width: 0;
+  /* 覆盖 DailyQuote 自身的 padding-top 与 .wrap 宽度，交给 flex 布局 */
+  padding-top: 0 !important;
+  width: auto;
+}
+
+/* ============ GitHub 仓库入口：每日一言卡片右侧 ============ */
+.github-link {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
 /* ============ 入场动画（保留，与 IntersectionObserver 配合） ============ */
 .hol-card {
   opacity: 0;
