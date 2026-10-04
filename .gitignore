@@ -6,21 +6,16 @@ dist
 .vite
 *.tsbuildinfo
 
-# 日志
+# 日志（*.log 已覆盖各包管理器调试日志；*debug.log* 兜底带轮转后缀的文件）
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+*debug.log*
 
 # 本地环境变量（保留 .env / .env.example 可提交）
 .env.local
 .env.*.local
 
-# 测试覆盖率
+# 测试覆盖率（vitest 的 lcov.info 等产物均在 coverage/ 内）
 coverage
-*.lcov
 
 # 编辑器 / 操作系统
 .DS_Store
