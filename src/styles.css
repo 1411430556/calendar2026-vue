@@ -778,6 +778,12 @@ footer .wrap {
   color: var(--ink-2);
   text-decoration: none;
 }
+/* 蹦跳与移出归位由 App.vue 的 Web Animations API 控制（onGhEnter/onGhLeave），
+   此处仅提示提升合成层，保证 transform 动画流畅；不使用 :hover animation，
+   否则鼠标移出时动画会被直接移除、从中间帧瞬间弹回而无法平滑收尾 */
+.github-link svg {
+  will-change: transform;
+}
 
 /* ============ 入场动画（保留，与 IntersectionObserver 配合） ============ */
 .hol-card {

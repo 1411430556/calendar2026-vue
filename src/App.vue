@@ -149,6 +149,57 @@ let revealIO: IntersectionObserver | null = null
 let spyIO: IntersectionObserver | null = null
 let disposeCursor: (() => void) | null = null
 
+// ============ GitHub 图标：悬停持续蹦跳，移出时从「当前位置」平滑落回 ============
+// 用 Web Animations API 而非纯 CSS：鼠标移出瞬间读取蹦跳的精确位移（0~-10px 任意一帧），
+// 再播放一次 ease-out 归位动画，避免 :hover 动画被移除时从中间帧瞬间弹回原位的突兀感。
+const ghIconRef = ref<SVGSVGElement | null>(null)
+let ghHop: Animation | null = null
+let ghSettle: Animation | null = null
+// 0%/100% 落地，35%~60% 停在最高点，形成向上蹦跳的滞空感
+const GH_HOP_KEYFRAMES: Keyframe[] = [
+  { transform: 'translateY(0)' },
+  { transform: 'translateY(-10px)', offset: 0.35 },
+  { transform: 'translateY(-10px)', offset: 0.6 },
+  { transform: 'translateY(0)' },
+]
+function onGhEnter() {
+  const el = ghIconRef.value
+  if (!el) return
+  ghSettle?.cancel()
+  ghSettle = null
+  ghHop?.cancel()
+  ghHop = el.animate(GH_HOP_KEYFRAMES, { duration: 850, iterations: Infinity, easing: 'ease-in-out' })
+}
+function onGhLeave() {
+  const el = ghIconRef.value
+  if (!el) return
+  // 读取蹦跳动画当前的实际位移：transform 矩阵的 m42 即 translateY 像素值
+  let y = 0
+  const raw = getComputedStyle(el).transform
+  if (raw && raw !== 'none') {
+    try {
+      y = new DOMMatrixReadOnly(raw).m42
+    } catch {
+      y = 0
+    }
+  }
+  ghHop?.cancel()
+  ghHop = null
+  // 从当前位移 ease-out 平滑归位；越靠高点给略长时长（封顶 420ms、保底 180ms），收尾自然不仓促
+  if (Math.abs(y) > 0.5) {
+    ghSettle = el.animate(
+      [
+        { transform: `translateY(${y}px)` },
+        { transform: 'translateY(0px)' },
+      ],
+      { duration: Math.min(420, Math.max(180, Math.abs(y) * 28)), easing: 'ease-out' },
+    )
+    ghSettle.onfinish = () => {
+      ghSettle = null
+    }
+  }
+}
+
 onMounted(() => {
   // 页面标题跟随数据年份动态更新（index.html 中的 2026 仅作初始占位）
   document.title = `${YEAR} ${GANZHI}${ZODIAC_CHAR}年 · 全年节假日日历（含农历·节气·调休）`
@@ -274,9 +325,12 @@ onUnmounted(() => {
             rel="noopener noreferrer"
             title="查看 GitHub 仓库"
             aria-label="查看 GitHub 仓库"
+            @mouseenter="onGhEnter"
+            @mouseleave="onGhLeave"
           >
-            <!-- line-md:github-loop：自带描边绘制 + 眨眼循环动画（SMIL），颜色走 currentColor -->
-            <svg viewBox="0 0 24 24" width="50" height="50" aria-hidden="true">
+            <!-- line-md:github-loop：自带描边绘制 + 眨眼循环动画（SMIL），颜色走 currentColor；
+                 悬停整体蹦跳与移出归位由 Web Animations API 控制（见 onGhEnter/onGhLeave） -->
+            <svg ref="ghIconRef" viewBox="0 0 24 24" width="50" height="50" aria-hidden="true">
               <defs>
                 <mask id="github-loop-eyes">
                   <path fill="#fff" d="M9.5 8c0.83 0 1.5 0.45 1.5 1c0 0.55 -0.67 1 -1.5 1c-0.83 0 -1.5 -0.45 -1.5 -1c0 -0.55 0.67 -1 1.5 -1ZM14.5 8c0.83 0 1.5 0.45 1.5 1c0 0.55 -0.67 1 -1.5 1c-0.83 0 -1.5 -0.45 -1.5 -1c0 -0.55 0.67 -1 1.5 -1Z" />
