@@ -8,11 +8,11 @@
 
 ![Vue 3](https://img.shields.io/badge/Vue-3.5-4FC08D?logo=vuedotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-7-646CFF?logo=vite&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
 ![naive-ui](https://img.shields.io/badge/naive--ui-2.x-BE3A2B)
 ![PWA](https://img.shields.io/badge/PWA-离线可用-2F5D55)
 ![License](https://img.shields.io/badge/License-MIT-B98F3E)
-![Node](https://img.shields.io/badge/Node-%3E%3D20-339933?logo=nodedotjs&logoColor=white)
+![Node](https://img.shields.io/badge/Node-%3E%3D20.19-339933?logo=nodedotjs&logoColor=white)
 
 **[在线访问](https://1411430556.github.io/calendar2026-vue/)** · [快速开始](#快速开始) · [参与贡献](#贡献指南)
 
@@ -44,13 +44,17 @@
 
 ### 体验增强
 
-- **每日一言** — 接入随机诗词接口，每次刷新换一句诗词锦句，失败时静默回退内置文案。
+- **每日一言** — 接入随机诗词接口，每次刷新换一句诗词锦句，失败时静默回退内置文案；卡片右侧附 GitHub 仓库入口（悬停旋转、移出自然回正）。
+- **当地天气浮窗** — 按访客 IP 自动定位（腾讯天气数据源），含实况 / 空气质量、预警、48 小时逐小时（跨天日期标注）、8 天预报、日出日落与限行、生活指数；30 分钟本地缓存，过期静默刷新。
+- **农历黄历浮窗** — 自选任意日期 / 时刻，展示公历、农历、四柱干支、八字、节气、宜忌、神煞方位、星宿值神等 9 个分区；同一时刻数据跨会话缓存。
 - **历史上的今天** — 右侧竖排签直达，浮窗展示历史事件列表，对称开合动画。
+- **百度热搜浮窗** — 9 个榜单一键切换，桌面平移、移动端触摸滑动实时跟手切榜；请求限速、后台预取、本地缓存。
+- **浮窗互斥避让** — 天气 / 农历 / 历史 / 热搜四个右侧浮窗共用开合机制：同一时刻仅开一个、外部点击关闭、滚轮边界锁定、窄屏抽屉与下拉关闭手势。
 - **鼠标粒子特效** — 零依赖原生 Canvas：移动散落、点击爆裂、一圈粒子环绕光标，仅响应鼠标。
 - **PWA 离线可用** — Service Worker 缓存同源静态资源（含字体），二次访问离线秒开；`manifest.json` 支持安装到桌面。
 - **回到顶部** — 滚动超过 200px 淡入显示，点击平滑回顶。
 - **响应式适配** — 桌面 / 平板 / 手机三档断点，移动端月历单列、统计卡双列。
-- **尊重系统偏好** — 动画自动适配 `prefers-reduced-motion`，刘海屏适配安全区。
+- **尊重系统偏好** — 滚动与入场动画适配 `prefers-reduced-motion`，刘海屏适配安全区。
 
 ### 工程特性
 
@@ -69,19 +73,21 @@
 | 类别 | 选型 |
 | --- | --- |
 | 框架 | Vue 3.5（`<script setup>` + Composition API） |
-| 语言 | TypeScript（strict 模式） |
-| 构建 | Vite 7 + `@vitejs/plugin-vue` |
-| UI 组件库 | naive-ui（按需具名引入，业务 JS 产物约 274KB / gzip 约 87KB） |
+| 语言 | TypeScript 6（strict 模式） |
+| 构建 | Vite 8（Rolldown 引擎）+ `@vitejs/plugin-vue` |
+| UI 组件库 | naive-ui 2.45（按需具名引入，未全量注册） |
+| 图标 | `@vicons/ionicons5`（Ionicons 5 按需引入） |
+| 单元测试 | Vitest 5（纯函数与状态机用例） |
 | 字体 | 阿里妈妈东方大楷（woff2 自托管，约 2.6MB，免费商用） |
 | PWA | 原生 Service Worker + Web App Manifest |
-| 类型检查 | `vue-tsc` |
-| 包管理 | pnpm |
+| 类型检查 | `vue-tsc`（独立命令 `pnpm typecheck`，与构建解耦） |
+| 包管理 | pnpm（唯一锁文件 pnpm-lock.yaml） |
 
-> 无路由、无状态库；naive-ui 仅按需引入实际用到的组件，未全量注册。鼠标粒子特效为零依赖手写 Canvas（[`src/utils/cursorEffect.ts`](src/utils/cursorEffect.ts)）。
+> 无路由、无状态库。生产构建产物：业务 JS 约 590KB（gzip 约 167KB）、CSS 约 53KB（gzip 约 9KB），字体为独立 woff2。鼠标粒子特效为零依赖手写 Canvas（[`src/utils/cursorEffect.ts`](src/utils/cursorEffect.ts)）；天气 / 农历 / 历史 / 热搜四个右侧浮窗统一复用 [`useSidePanel.ts`](src/composables/useSidePanel.ts) 开合机制。
 
 ## 快速开始
 
-环境要求：Node.js `>= 20`，包管理器 [pnpm](https://pnpm.io/)。
+环境要求：Node.js `>= 20.19`（推荐 22 LTS，CI 构建使用 Node 22），包管理器 [pnpm](https://pnpm.io/)。
 
 ```bash
 # 克隆仓库
@@ -94,16 +100,27 @@ pnpm install
 # 启动开发服务器（http://localhost:5173）
 pnpm dev
 
-# 生产构建（含 vue-tsc 类型检查）
+# 仅类型检查（vue-tsc，独立于构建）
+pnpm typecheck
+
+# 运行单元测试（Vitest；test:watch 可监听重跑）
+pnpm test
+
+# 生产构建（纯 vite 构建，不含类型检查，速度快）
 pnpm build
+
+# 提交前一键完整校验：类型检查 + 单元测试 + 生产构建
+pnpm verify
 
 # 预览构建产物
 pnpm preview
 ```
 
+> 日常开发推荐 `pnpm dev`（HMR）配合 IDE 的 Volar 实时类型诊断；`vue-tsc` 全量类型检查较慢，无需每次改动都运行，提交前执行一次 `pnpm verify` 即可。
+
 ### 环境变量（可选）
 
-「每日一言」与「历史上的今天」使用 [shwgij API](https://api.shwgij.com/)，密钥通过环境变量注入：
+「每日一言」「历史上的今天」「农历黄历」「当地天气」「百度热搜」等在线能力均通过 [相见拾光 shwgij API](https://api.shwgij.com/)（天气数据源为腾讯天气）获取，共用同一个密钥，通过环境变量注入：
 
 ```bash
 # 项目根目录创建 .env.local（不入库）
@@ -138,11 +155,16 @@ calendar2026-vue/
     ├── components/
     │   ├── DailyQuote.vue      # 每日一言（诗词接口 + 兜底文案）
     │   ├── HistoryToday.vue    # 历史上的今天（浮窗）
-    │   └── HotNews.vue         # 百度热搜新闻榜（浮窗）
+    │   ├── HotNews.vue         # 百度热搜新闻榜（浮窗，触摸滑动切榜）
+    │   ├── LunarCalendar.vue   # 农历黄历（浮窗，自选日期时刻）
+    │   └── WeatherPanel.vue    # 当地天气（浮窗，IP 定位 / 腾讯天气源）
     ├── composables/
     │   ├── useSidePanel.ts     # 浮窗公共开合机制（互斥避让 / 外部点击关闭 / 滚轮锁定 / 下拉手势）
     │   ├── useHotNews.ts       # 热搜数据状态机（缓存 / 限速 / 重试 / 预取 / 定时刷新）
-    │   └── useHotNews.test.ts  # 服务端时间戳清洗单元测试
+    │   ├── useHotNews.test.ts  # 热搜状态机单元测试
+    │   ├── useLunarData.ts     # 农历黄历数据（14 位时刻参数 / 限速 / 跨会话缓存）
+    │   ├── useLunarData.test.ts# 农历缓存与竞态单元测试
+    │   └── useWeather.ts       # 天气数据（IP 定位 / 30 分钟缓存 / 静默刷新 / 请求去重）
     ├── utils/
     │   ├── api.ts              # 公共请求层（密钥注入 / 超时 / 解包 / 限速器）
     │   ├── api.test.ts         # 请求层单元测试
@@ -151,6 +173,8 @@ calendar2026-vue/
     │   ├── cursorEffect.ts     # 鼠标粒子特效（零依赖 Canvas）
     │   ├── format.ts           # 展示格式化（补零 / 热搜数 / 涨跌标记 / 年份）
     │   ├── format.test.ts      # 格式化单元测试
+    │   ├── lunar.ts            # 农历黄历字段整理（87 字段分 9 区，纯函数）
+    │   ├── lunar.test.ts       # 农历字段整理单元测试
     │   ├── storage.ts          # localStorage 读写封装（脏 JSON 容错）
     │   └── storage.test.ts     # 存储封装单元测试
     ├── assets/
@@ -190,6 +214,7 @@ calendar2026-vue/
 
 要点：
 
+- **流水线环境**：Ubuntu 最新镜像 + Node 22 + pnpm 10；`pnpm install --frozen-lockfile` 后先独立执行 `pnpm typecheck`（类型错误即阻断部署），再 `pnpm build`，最后上传并部署产物。
 - **首次启用**：仓库 `Settings` → `Pages` → `Source` 选择 **GitHub Actions**，之后每次推送自动部署，也可在 Actions 页手动触发（`workflow_dispatch`）。
 - **接口密钥**：在仓库 `Settings` → `Secrets and variables` → `Actions` 中配置 `VITE_HISTORY_API_KEY`，工作流构建时会注入产物。
 - **子路径 base**：项目页部署在 `/calendar2026-vue/` 下，`vite.config.ts` 通过 `process.env.GITHUB_ACTIONS` 判断 CI 环境并启用子路径 `base`，本地开发仍为根路径。
@@ -229,7 +254,7 @@ calendar2026-vue/
    - **scope**：影响范围，如 `components`、`styles`、`data`、`utils`
    - 示例：`feat(components): 历史上的今天浮窗支持键盘操作`
 
-3. 提交前请确保 `pnpm build`（含类型检查）通过。
+3. 提交前请确保 `pnpm verify`（类型检查 + 单元测试 + 生产构建）通过。
 4. 推送分支并发起 Pull Request，描述清楚改动动机与验证方式。
 
 ## 许可证
