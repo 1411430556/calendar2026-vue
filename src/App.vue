@@ -149,50 +149,57 @@ let revealIO: IntersectionObserver | null = null
 let spyIO: IntersectionObserver | null = null
 let disposeCursor: (() => void) | null = null
 
-// ============ GitHub 图标：悬停持续蹦跳，移出时从「当前位置」平滑落回 ============
-// 用 Web Animations API 而非纯 CSS：鼠标移出瞬间读取蹦跳的精确位移（0~-10px 任意一帧），
-// 再播放一次 ease-out 归位动画，避免 :hover 动画被移除时从中间帧瞬间弹回原位的突兀感。
+// ============ GitHub 图标：悬停持续旋转，移出时从「当前角度」沿原方向自然转回正位 ============
+// 用 Web Animations API 而非纯 CSS：鼠标移出瞬间读取旋转的精确角度，
+// 再沿原方向续转到下一整圈后 ease-out 停住（不反转、不强制归零），
+// 避免 :hover 动画被移除时从中间帧瞬间弹回 0° 的突兀感。
 const ghIconRef = ref<SVGSVGElement | null>(null)
-let ghHop: Animation | null = null
+let ghSpin: Animation | null = null
 let ghSettle: Animation | null = null
-// 0%/100% 落地，35%~60% 停在最高点，形成向上蹦跳的滞空感
-const GH_HOP_KEYFRAMES: Keyframe[] = [
-  { transform: 'translateY(0)' },
-  { transform: 'translateY(-10px)', offset: 0.35 },
-  { transform: 'translateY(-10px)', offset: 0.6 },
-  { transform: 'translateY(0)' },
+// 匀速旋转一圈；悬停时 linear 无限循环
+const GH_SPIN_KEYFRAMES: Keyframe[] = [
+  { transform: 'rotate(0deg)' },
+  { transform: 'rotate(360deg)' },
 ]
+// 悬停旋转一圈的时长，收尾动画按时长/角度比例衔接，尽量保持角速度连续
+const GH_SPIN_DURATION = 2000
 function onGhEnter() {
   const el = ghIconRef.value
   if (!el) return
   ghSettle?.cancel()
   ghSettle = null
-  ghHop?.cancel()
-  ghHop = el.animate(GH_HOP_KEYFRAMES, { duration: 850, iterations: Infinity, easing: 'ease-in-out' })
+  ghSpin?.cancel()
+  ghSpin = el.animate(GH_SPIN_KEYFRAMES, { duration: GH_SPIN_DURATION, iterations: Infinity, easing: 'linear' })
 }
 function onGhLeave() {
   const el = ghIconRef.value
   if (!el) return
-  // 读取蹦跳动画当前的实际位移：transform 矩阵的 m42 即 translateY 像素值
-  let y = 0
+  // 读取旋转动画当前的实际角度：纯旋转矩阵中 m11=cosθ、m12=sinθ，用 atan2 反推角度并归一化到 0~360
+  let deg = 0
   const raw = getComputedStyle(el).transform
   if (raw && raw !== 'none') {
     try {
-      y = new DOMMatrixReadOnly(raw).m42
+      const m = new DOMMatrixReadOnly(raw)
+      deg = (Math.atan2(m.m12, m.m11) * 180) / Math.PI
+      deg = (deg + 360) % 360
     } catch {
-      y = 0
+      deg = 0
     }
   }
-  ghHop?.cancel()
-  ghHop = null
-  // 从当前位移 ease-out 平滑归位；越靠高点给略长时长（封顶 420ms、保底 180ms），收尾自然不仓促
-  if (Math.abs(y) > 0.5) {
+  ghSpin?.cancel()
+  ghSpin = null
+  // 沿原方向继续转到整圈（360°）停正，绝不反转；剩余角度越小时长越短（封顶 600ms、保底 120ms）
+  const rest = 360 - deg
+  if (rest > 0.5 && rest < 359.5) {
     ghSettle = el.animate(
       [
-        { transform: `translateY(${y}px)` },
-        { transform: 'translateY(0px)' },
+        { transform: `rotate(${deg}deg)` },
+        { transform: 'rotate(360deg)' },
       ],
-      { duration: Math.min(420, Math.max(180, Math.abs(y) * 28)), easing: 'ease-out' },
+      {
+        duration: Math.min(600, Math.max(120, (rest / 360) * GH_SPIN_DURATION)),
+        easing: 'ease-out',
+      },
     )
     ghSettle.onfinish = () => {
       ghSettle = null
@@ -329,7 +336,7 @@ onUnmounted(() => {
             @mouseleave="onGhLeave"
           >
             <!-- line-md:github-loop：自带描边绘制 + 眨眼循环动画（SMIL），颜色走 currentColor；
-                 悬停整体蹦跳与移出归位由 Web Animations API 控制（见 onGhEnter/onGhLeave） -->
+                 悬停整体旋转与移出回正由 Web Animations API 控制（见 onGhEnter/onGhLeave） -->
             <svg ref="ghIconRef" viewBox="0 0 24 24" width="50" height="50" aria-hidden="true">
               <defs>
                 <mask id="github-loop-eyes">
