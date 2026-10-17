@@ -501,10 +501,11 @@ const headWeek = computed(() => summary.value?.week ?? '')
 }
 .ln-rl {
   flex: none;
-  width: 5.5em;
+  width: 6.5em;
   font-size: 0.78rem;
   color: var(--ink-3);
   padding-top: 1px;
+  white-space: nowrap;
 }
 .ln-rv {
   flex: 1;
